@@ -6,7 +6,7 @@ wird aus mailcow aktualisiert (ausser im Eintrag steht "DisplayNameLocked": true
 
 Aufruf (auf dem mailcow-Host, z. B. per Cronjob):
   MAILCOW_URL=https://mail.example.com MAILCOW_API_KEY=xxxx \
-    python3 sync_users.py /opt/mailcow-dockerized/data/conf/rspamd/custom/signature/users.json
+    python3 sync_users.py /opt/mailcow-dockerized/data/conf/rspamd/local.d/mailcow-signature/users.json
 
 Der API-Key braucht nur Lesezugriff (mailcow UI -> System -> Konfiguration -> Zugang -> API).
 """

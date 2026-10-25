@@ -20,7 +20,7 @@
 
 local M = {}
 
-local BASE = '/etc/rspamd/custom/signature'
+local BASE = '/etc/rspamd/local.d/mailcow-signature'
 local SYMBOL = 'MAILCOW_SIGNATURE'
 local N = 'mailcow_signature'
 

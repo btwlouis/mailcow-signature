@@ -13,7 +13,7 @@ services:
       - TZ=${TZ}
     volumes:
       - ./data/signature-ui:/app:ro,z
-      - ./data/conf/rspamd/custom/signature:/data:z
+      - ./data/conf/rspamd/local.d/mailcow-signature:/data:z
     ports:
       # SIGNATURE_UI_BIND in mailcow.conf, e.g. a VPN/private IP; default: localhost only
       - "${SIGNATURE_UI_BIND:-127.0.0.1}:8090:8090"

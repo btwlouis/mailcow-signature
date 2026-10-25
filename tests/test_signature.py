@@ -14,7 +14,7 @@ import lupa.luajit21 as lupa
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PLUGIN = os.path.join(ROOT, "data", "conf", "rspamd", "custom", "mailcow_signature.lua")
-TPL = os.path.join(ROOT, "data", "conf", "rspamd", "custom", "signature", "templates", "default")
+TPL = os.path.join(ROOT, "data", "conf", "rspamd", "local.d", "mailcow-signature", "templates", "default")
 
 lua = lupa.LuaRuntime(encoding=None, unpack_returned_tuples=True)
 M = lua.execute(open(PLUGIN, "rb").read())

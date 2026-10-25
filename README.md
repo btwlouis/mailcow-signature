@@ -76,9 +76,9 @@ git clone https://github.com/btwlouis/mailcow-signature.git /opt/mailcow-signatu
 cd /opt/mailcow-dockerized
 
 # 1. rspamd plugin + templates
-cp -r /opt/mailcow-signature/data/conf/rspamd/custom/* data/conf/rspamd/custom/
-cp /opt/mailcow-signature/data/conf/rspamd/local.d/rspamd.lua data/conf/rspamd/local.d/   # must not exist yet
-# edit data/conf/rspamd/custom/signature/config.json: set "domains" and "dry_run": true
+cp /opt/mailcow-signature/data/conf/rspamd/custom/mailcow_signature.lua data/conf/rspamd/custom/
+cp -r /opt/mailcow-signature/data/conf/rspamd/local.d/* data/conf/rspamd/local.d/   # local.d/rspamd.lua must not exist yet
+# edit data/conf/rspamd/local.d/mailcow-signature/config.json: set "domains" and "dry_run": true
 
 # 2. Web UI
 cp -r /opt/mailcow-signature/data/signature-ui data/
@@ -103,7 +103,7 @@ Then continue with the steps after the quick install.
 |---|---|
 | `data/conf/rspamd/custom/mailcow_signature.lua` | rspamd plugin |
 | `data/conf/rspamd/local.d/rspamd.lua` | loader (rspamd loads it automatically) |
-| `data/conf/rspamd/custom/signature/` | `config.json`, `users.json`, `templates/<default\|domain\|address>/{new,reply}.{html,txt}` |
+| `data/conf/rspamd/local.d/mailcow-signature/` | `config.json`, `users.json`, `templates/<default\|domain\|address>/{new,reply}.{html,txt}` |
 | `data/signature-ui/` | web UI (Python stdlib only) |
 | `install.sh` | one-shot installer / updater / uninstaller |
 | `tools/sync_users.py` | sync display names from the mailcow API (CLI alternative to the UI button) |

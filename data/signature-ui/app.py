@@ -2,7 +2,7 @@
 """Weboberflaeche fuer mailcow-signature (nur Python-Standardbibliothek).
 
   SIGNATURE_UI_PASSWORD=geheim python3 app.py \
-      --data /opt/mailcow-dockerized/data/conf/rspamd/custom/signature \
+      --data /opt/mailcow-dockerized/data/conf/rspamd/local.d/mailcow-signature \
       --bind 127.0.0.1 --port 8090
 
 Optional fuer den Abgleich der Anzeigenamen: MAILCOW_URL, MAILCOW_API_KEY.

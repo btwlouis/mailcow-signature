@@ -66,12 +66,13 @@ main() {
   detect_mailcow
   cd "$MAILCOW_DIR"
   RSPAMD="$MAILCOW_DIR/data/conf/rspamd"
-  SIGDIR="$RSPAMD/custom/signature"
+  SIGDIR="$RSPAMD/local.d/mailcow-signature"
 
   if [ "$mode" = uninstall ]; then uninstall "$purge"; return; fi
 
   fetch_source
   backup
+  migrate_data_dir
   install_plugin
   install_config
   if [ "$with_ui" = 1 ]; then install_ui; fi
@@ -149,7 +150,7 @@ conf_get() {
 install_config() {
   mkdir -p "$SIGDIR/templates"
   if [ ! -d "$SIGDIR/templates/default" ]; then
-    cp -r "$SRC/data/conf/rspamd/custom/signature/templates/default" "$SIGDIR/templates/"
+    cp -r "$SRC/data/conf/rspamd/local.d/mailcow-signature/templates/default" "$SIGDIR/templates/"
     info "Default templates installed"
   fi
   if [ ! -f "$SIGDIR/config.json" ]; then
@@ -160,7 +161,7 @@ install_config() {
         -e 's/^  "dry_run": .*/  "dry_run": true,/' \
         -e 's/^  "exclude_senders": .*/  "exclude_senders": [],/' \
         -e "s/^  \"internal_domains\": .*/  \"internal_domains\": [$json],/" \
-        "$SRC/data/conf/rspamd/custom/signature/config.json" > "$SIGDIR/config.json"
+        "$SRC/data/conf/rspamd/local.d/mailcow-signature/config.json" > "$SIGDIR/config.json"
     if [ -n "$json" ]; then info "config.json created for: $(echo $domains | tr ' ' ',')"
     else warn "No domains detected, add them in the web UI"; fi
   else
@@ -168,6 +169,21 @@ install_config() {
   fi
   [ -f "$SIGDIR/users.json" ] || echo "{}" > "$SIGDIR/users.json"
   fix_permissions
+}
+
+# Older versions kept the data in custom/signature. mailcow's rspamd entrypoint runs
+# "chmod 644 -R /etc/rspamd/custom/*" on every start, which makes subdirectories
+# unreadable for rspamd, so it now lives in local.d/mailcow-signature.
+migrate_data_dir() {
+  local old="$RSPAMD/custom/signature"
+  [ -d "$old" ] || return 0
+  if [ ! -d "$SIGDIR" ]; then
+    mv "$old" "$SIGDIR"
+    info "Moved signature data to $SIGDIR"
+  else
+    mv "$old" "$BACKUP/old-custom-signature"
+    warn "Old $old moved to $BACKUP/old-custom-signature"
+  fi
 }
 
 # rspamd runs as _rspamd and needs to traverse the folders (x bit on directories)
@@ -210,7 +226,7 @@ ${i}${i}${i}- MAILCOW_API_KEY=\${SIGNATURE_UI_API_KEY:-}
 ${i}${i}${i}- TZ=\${TZ}
 ${i}${i}volumes:
 ${i}${i}${i}- ./data/signature-ui:/app:ro,z
-${i}${i}${i}- ./data/conf/rspamd/custom/signature:/data:z
+${i}${i}${i}- ./data/conf/rspamd/local.d/mailcow-signature:/data:z
 ${i}${i}ports:
 ${i}${i}${i}- "\${SIGNATURE_UI_BIND:-127.0.0.1}:8090:8090"
 ${i}${i}networks:
