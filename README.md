@@ -6,7 +6,8 @@ Server-side email signatures for [mailcow](https://mailcow.email), placed the wa
 - Detects reply/forward markers of Outlook (desktop, OWA, new Outlook, mobile), Gmail, Apple Mail/iOS, Thunderbird, SOGo, Roundcube, Yahoo and Zimbra.
 - Separate templates for new mails and replies. The reply template can be short or empty (no signature).
 - Templates per domain or per person, with placeholders (`{{DisplayName}}`, `{{Title}}`, `{{#Mobile}}…{{/Mobile}}`, …).
-- **Web UI** with live preview to manage signatures per domain, company data and people.
+- **Web UI** with a visual **signature designer** (logo, colors, fields), live preview incl. dark mode simulation, company data and people per domain.
+- **Domains and mailboxes synced from mailcow** with one click (mailcow API key).
 
 ## Safety
 
@@ -51,6 +52,18 @@ Changes are picked up within 60 seconds, without a restart.
 | Plugin only, no web UI | `curl -fsSL https://raw.githubusercontent.com/btwlouis/mailcow-signature/main/install.sh \| sudo bash -s -- --no-ui` |
 | Uninstall (keeps templates/config) | `curl -fsSL https://raw.githubusercontent.com/btwlouis/mailcow-signature/main/install.sh \| sudo bash -s -- --uninstall` |
 | Uninstall everything | `curl -fsSL https://raw.githubusercontent.com/btwlouis/mailcow-signature/main/install.sh \| sudo bash -s -- --uninstall --purge` |
+
+## Signature designer, logos and dark mode
+
+The designer builds email-safe HTML (tables, inline styles, no background colors) for Outlook, Gmail, Apple Mail and others. Logos are uploaded in the UI, stored in `data/web/sig-assets/` and served publicly by mailcow's nginx at `https://<mailcow-host>/sig-assets/…`, so recipients can load them. The UI checks that this URL is reachable.
+
+Dark mode: mail clients recolor text and backgrounds, but never images. So a dark logo on a transparent background disappears on a dark background. The designer analyzes each logo and offers:
+
+- **White outline** (recommended): adds a thin white contour, works in every client.
+- **White plate**: bakes the logo onto a rounded white area, looks the same everywhere.
+- **Dark mode logo**: an alternative image shown via `prefers-color-scheme` in Apple Mail, Outlook for Mac/iOS and Thunderbird. Outlook for Windows and Gmail ignore it, so use it on top of the outline, not instead of it.
+
+The preview can simulate light mode, dark mode with recolored colors, and dark mode with the dark mode logo. SVG uploads are converted to PNG, because Outlook and Gmail don't show SVG.
 
 ## Testing with dry run
 
@@ -102,6 +115,7 @@ Then continue with the steps after the quick install.
 | Path | Purpose |
 |---|---|
 | `data/conf/rspamd/custom/mailcow_signature.lua` | rspamd plugin |
+| `data/web/sig-assets/` | uploaded logos (public, served by mailcow's nginx) |
 | `data/conf/rspamd/local.d/rspamd.lua` | loader (rspamd loads it automatically) |
 | `data/conf/rspamd/local.d/mailcow-signature/` | `config.json`, `users.json`, `templates/<default\|domain\|address>/{new,reply}.{html,txt}` |
 | `data/signature-ui/` | web UI (Python stdlib only) |

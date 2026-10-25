@@ -5,8 +5,11 @@
       --data /opt/mailcow-dockerized/data/conf/rspamd/local.d/mailcow-signature \
       --bind 127.0.0.1 --port 8090
 
-Optional fuer den Abgleich der Anzeigenamen: MAILCOW_URL, MAILCOW_API_KEY.
+Optional fuer den Abgleich von Domains und Anzeigenamen: MAILCOW_URL, MAILCOW_API_KEY.
+Logos werden in --assets gespeichert (mailcow: data/web/sig-assets) und sind dann
+oeffentlich unter SIGNATURE_ASSET_URL erreichbar (Standard: MAILCOW_URL/sig-assets/).
 """
+import hashlib
 import argparse
 import hmac
 import http.server
@@ -22,12 +25,16 @@ import urllib.request
 from http import cookies
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TEMPLATE_FILES = ("new.html", "new.txt", "reply.html", "reply.txt")
+TEMPLATE_FILES = ("new.html", "new.txt", "reply.html", "reply.txt", "design.json")
+ASSET_RE = re.compile(r"^[a-f0-9]{16}\.(png|jpg|gif)$")
+ASSET_TYPES = {"png": "image/png", "jpg": "image/jpeg", "gif": "image/gif"}
 LEVEL_RE = re.compile(r"^(default|[a-z0-9][a-z0-9._+-]*(@[a-z0-9][a-z0-9.-]*)?)$")
 SESSION_TTL = 8 * 3600
 MAX_BODY = 2 * 1024 * 1024
 
 DATA = ""
+ASSETS = ""
+ASSET_URL = ""
 PASSWORD = ""
 sessions = {}
 failed_logins = {}
@@ -167,16 +174,74 @@ def validate_users(users):
     return clean
 
 
-def mailcow_sync():
+def asset_kind(data: bytes):
+    if data.startswith(bytes.fromhex("89504e470d0a1a0a")):
+        return "png"
+    if data.startswith(bytes.fromhex("ffd8ff")):
+        return "jpg"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return "gif"
+    return None
+
+
+def save_asset(data: bytes):
+    kind = asset_kind(data)
+    if not kind:
+        raise ValueError("Nur PNG, JPG oder GIF erlaubt (SVG zeigen Outlook und Gmail nicht an)")
+    name = "%s.%s" % (hashlib.sha256(data).hexdigest()[:16], kind)
+    os.makedirs(ASSETS, mode=0o755, exist_ok=True)
+    os.chmod(ASSETS, 0o755)
+    path = os.path.join(ASSETS, name)
+    if not os.path.exists(path):
+        atomic_write(path, data)
+    return {"name": name, "url": ASSET_URL + name, "size": len(data)}
+
+
+def list_assets():
+    if not os.path.isdir(ASSETS):
+        return []
+    out = []
+    for name in sorted(os.listdir(ASSETS)):
+        if ASSET_RE.match(name):
+            p = os.path.join(ASSETS, name)
+            out.append({"name": name, "url": ASSET_URL + name, "size": os.path.getsize(p),
+                        "mtime": int(os.path.getmtime(p))})
+    out.sort(key=lambda a: -a["mtime"])
+    return out
+
+
+def delete_asset(name):
+    if not ASSET_RE.match(name):
+        raise ValueError("Ungueltiger Dateiname")
+    p = os.path.join(ASSETS, name)
+    if os.path.exists(p):
+        os.remove(p)
+
+
+def mailcow_api(path):
     url = os.environ.get("MAILCOW_URL", "").rstrip("/")
     key = os.environ.get("MAILCOW_API_KEY", "")
     if not url or not key:
         raise ValueError("MAILCOW_URL und MAILCOW_API_KEY sind nicht gesetzt")
-    req = urllib.request.Request(url + "/api/v1/get/mailbox/all", headers={"X-API-Key": key})
+    req = urllib.request.Request(url + path, headers={"X-API-Key": key})
     with urllib.request.urlopen(req, timeout=30) as resp:
-        mailboxes = json.load(resp)
-    if not isinstance(mailboxes, list):
-        raise ValueError("Unerwartete Antwort der mailcow-API")
+        data = json.load(resp)
+    if not isinstance(data, list):
+        raise ValueError("Unerwartete Antwort der mailcow-API (%s)" % path)
+    return data
+
+
+def mailcow_sync():
+    mailboxes = mailcow_api("/api/v1/get/mailbox/all")
+    domains = mailcow_api("/api/v1/get/domain/all")
+
+    cfg = read_json("config.json", {})
+    have = set(cfg.get("domains", []))
+    new_domains = sorted({str(d.get("domain_name", "")).lower() for d in domains
+                          if str(d.get("active", "1")) in ("1", "True", "true") and d.get("domain_name")} - have)
+    if new_domains:
+        cfg["domains"] = sorted(have | set(new_domains))
+        write_json("config.json", validate_config(cfg))
     users = read_json("users.json", {})
     added = updated = 0
     for mb in mailboxes:
@@ -192,7 +257,8 @@ def mailcow_sync():
             entry["DisplayName"] = name
             updated += 1
     write_json("users.json", users)
-    return {"mailboxes": len(mailboxes), "added": added, "updated": updated}
+    fix_permissions()
+    return {"mailboxes": len(mailboxes), "added": added, "updated": updated, "domains_added": new_domains}
 
 
 # --------------------------------------------------------------------------- HTTP
@@ -216,7 +282,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy",
                          "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-                         "font-src https://fonts.gstatic.com; img-src * data:; frame-src 'self'; "
+                         "font-src https://fonts.gstatic.com; img-src * data: blob:; frame-src 'self'; "
                          "script-src 'self' 'unsafe-inline'")
         for k, v in (extra or {}).items():
             self.send_header(k, v)
@@ -265,7 +331,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "users": read_json("users.json", {}),
                 "templates": read_templates(),
                 "sync_available": bool(os.environ.get("MAILCOW_URL") and os.environ.get("MAILCOW_API_KEY")),
+                "assets": list_assets(),
+                "asset_url": ASSET_URL,
             })
+        if self.path.startswith("/assets/"):
+            # Vorschau im VPN, auch wenn die oeffentliche Adresse (noch) nicht erreichbar ist
+            name = self.path[len("/assets/"):].split("?", 1)[0]
+            p = os.path.join(ASSETS, name)
+            if ASSET_RE.match(name) and os.path.isfile(p):
+                with open(p, "rb") as f:
+                    return self.send(200, f.read(), ASSET_TYPES[name.rsplit(".", 1)[1]])
         if self.path == "/api/session":
             return self.send(200, {"authenticated": bool(self.session())})
         self.send(404, {"error": "Nicht gefunden"})
@@ -283,6 +358,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return
             if self.path == "/api/sync":
                 return self.send(200, mailcow_sync())
+            if self.path == "/api/assets":
+                n = int(self.headers.get("Content-Length") or 0)
+                if n <= 0 or n > MAX_BODY:
+                    raise ValueError("Bild fehlt oder ist groesser als 2 MB")
+                return self.send(200, save_asset(self.rfile.read(n)))
             self.send(404, {"error": "Nicht gefunden"})
         except ValueError as e:
             self.send(400, {"error": str(e)})
@@ -314,6 +394,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if self.path.startswith("/api/templates/"):
                 delete_templates(self.path[len("/api/templates/"):].lower())
                 return self.send(200, {"ok": True})
+            if self.path.startswith("/api/assets/"):
+                delete_asset(self.path[len("/api/assets/"):])
+                return self.send(200, {"ok": True})
             self.send(404, {"error": "Nicht gefunden"})
         except ValueError as e:
             self.send(400, {"error": str(e)})
@@ -342,13 +425,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 def main():
-    global DATA, PASSWORD
+    global DATA, PASSWORD, ASSETS, ASSET_URL
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--data", default=os.environ.get("SIGNATURE_DATA", "/data"))
+    ap.add_argument("--assets", default=os.environ.get("SIGNATURE_ASSETS", "/assets"))
     ap.add_argument("--bind", default=os.environ.get("SIGNATURE_UI_BIND", "127.0.0.1"))
     ap.add_argument("--port", type=int, default=int(os.environ.get("SIGNATURE_UI_PORT", "8090")))
     args = ap.parse_args()
     DATA = os.path.abspath(args.data)
+    ASSETS = os.path.abspath(args.assets)
+    ASSET_URL = os.environ.get("SIGNATURE_ASSET_URL") or (os.environ.get("MAILCOW_URL", "").rstrip("/") + "/sig-assets/")
+    if not ASSET_URL.endswith("/"):
+        ASSET_URL += "/"
     PASSWORD = os.environ.get("SIGNATURE_UI_PASSWORD", "")
     if len(PASSWORD) < 10:
         raise SystemExit("SIGNATURE_UI_PASSWORD muss gesetzt sein (mind. 10 Zeichen)")

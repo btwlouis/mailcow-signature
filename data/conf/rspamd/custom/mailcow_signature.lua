@@ -945,6 +945,9 @@ function M.build_vars(cfg, users, addr, domain, display_name)
   end
   if not nonempty(vars.FirstName) then vars.FirstName = tostring(vars.DisplayName):match('^(%S+)') end
   if not nonempty(vars.LastName) then vars.LastName = tostring(vars.DisplayName):match('%s(%S+)$') end
+  if nonempty(vars.Website) then
+    vars.Website = (tostring(vars.Website):gsub('^[Hh][Tt][Tt][Pp][Ss]?://', ''):gsub('/$', ''))
+  end
   vars.Email = vars.Email or addr
   vars.Domain = domain
   vars.Year = os.date('%Y')

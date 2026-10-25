@@ -144,6 +144,44 @@ table.grid tr.expand td{background:var(--panel-2)}
 .toast.err{background:var(--danger);color:#fff}
 .stack>*+*{margin-top:20px}
 
+/* Designer */
+.sig-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.dcard{padding:18px 20px}
+.dcard h3{margin:0 0 2px;font-size:15px}
+.dcard .sub{margin:0 0 14px;color:var(--text-2);font-size:13px}
+.drow{display:grid;grid-template-columns:140px 1fr;gap:10px 14px;align-items:center;margin-bottom:12px}
+.drow>label{font-weight:500;font-size:13px}
+.logo-stage{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.logo-bg{height:110px;border-radius:9px;display:grid;place-items:center;position:relative;overflow:hidden;border:1px solid var(--line)}
+.logo-bg.light{background:#ffffff}
+.logo-bg.dark{background:#1f1f1f}
+.logo-bg img{max-width:85%;max-height:80px}
+.logo-bg span{position:absolute;left:8px;top:6px;font-size:11px;font-weight:600;letter-spacing:.03em}
+.logo-bg.light span{color:#667085}.logo-bg.dark span{color:#98a2b3}
+.logo-bg.checker{background-image:linear-gradient(45deg,#e5e7eb 25%,transparent 25%),linear-gradient(-45deg,#e5e7eb 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#e5e7eb 75%),linear-gradient(-45deg,transparent 75%,#e5e7eb 75%);background-size:14px 14px;background-position:0 0,0 7px,7px -7px,-7px 0}
+.note{border-radius:9px;padding:10px 12px;font-size:13px;margin-bottom:12px;border:1px solid var(--line);background:var(--panel-2)}
+.note.ok{background:var(--ok-soft);border-color:transparent;color:var(--ok)}
+.note.warn{background:var(--warn-soft);border-color:transparent;color:var(--warn)}
+.note.err{background:var(--danger-soft);border-color:transparent;color:var(--danger)}
+.note b{font-weight:600}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.lib{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin:4px 0 12px}
+.lib-item{position:relative;height:72px;border:1px solid var(--line-2);border-radius:8px;background:#fff;display:grid;place-items:center;cursor:pointer;padding:6px}
+.lib-item:hover{border-color:var(--accent)}
+.lib-item.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.lib-item img{max-width:100%;max-height:56px}
+.lib-item .icon-btn{position:absolute;right:2px;top:2px;width:24px;height:24px;background:rgba(255,255,255,.9)}
+.color-in{display:flex;gap:8px;align-items:center}
+.color-in input[type=color]{width:40px;height:34px;border:1px solid var(--line-2);border-radius:8px;padding:2px;background:var(--panel);cursor:pointer}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px}
+.checks label{display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer}
+.checks input{accent-color:var(--accent)}
+details.help summary{cursor:pointer;font-weight:600}
+details.help table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12.5px}
+details.help td,details.help th{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+details.help th{color:var(--text-3);font-weight:600}
+input[type=range]{accent-color:var(--accent);width:100%}
+
 @media (max-width:1100px){.editor-grid{grid-template-columns:1fr}.preview-wrap{position:static}.settings-grid{grid-template-columns:1fr}}
 @media (max-width:760px){
   #app{grid-template-columns:1fr;grid-template-rows:56px auto 1fr}
@@ -193,7 +231,8 @@ const AUTO_VARS = ["DisplayName", "FirstName", "LastName", "Email", "Domain", "Y
 
 let S = null;              // Serverzustand (wird lokal bearbeitet)
 let dirty = { config: false, users: false, tpl: new Set(), del: new Set() };
-let view = { page: "level", level: "default", tab: "sig", kind: "new", fmt: "html", previewKind: "reply", sampleUser: "", expanded: "" };
+let view = { page: "level", level: "default", tab: "sig", kind: "new", fmt: "html", previewKind: "reply", sampleUser: "", expanded: "",
+             sigMode: "design", dark: "light", showLib: false };
 
 // ------------------------------------------------------------------ API
 async function api(method, path, body) {
@@ -237,6 +276,7 @@ function buildVars(addr, domain) {
   if (!nonempty(v.DisplayName)) v.DisplayName = addr.split("@")[0];
   if (!nonempty(v.FirstName)) v.FirstName = (String(v.DisplayName).match(/^(\S+)/) || [])[1];
   if (!nonempty(v.LastName)) v.LastName = (String(v.DisplayName).match(/\s(\S+)$/) || [])[1];
+  if (nonempty(v.Website)) v.Website = String(v.Website).replace(/^https?:[/][/]/i, "").replace(/[/]$/, "");
   v.Email = v.Email || addr; v.Domain = domain; v.Year = String(new Date().getFullYear());
   return v;
 }
@@ -309,6 +349,7 @@ function renderSide() {
   if (!ds.length) h += `<div class="hint" style="padding:4px 10px">Noch keine Domain angelegt.</div>`;
   ds.forEach(d => h += nav("level", d, ICON.globe, d, hasOwn(d) ? "eigene" : "Standard"));
   h += `<form class="add-domain" id="addDomain"><input class="input" placeholder="firma.de" id="newDomain" style="height:32px"><button class="btn sm">Hinzufügen</button></form>`;
+  if (S.sync_available) h += `<div style="padding:0 4px"><button class="btn sm ghost" style="width:100%;justify-content:center" data-act="sync" title="Übernimmt alle aktiven Domains und Postfächer aus mailcow">Aus mailcow übernehmen</button></div>`;
   $("#side").innerHTML = h;
 }
 
@@ -351,6 +392,8 @@ function renderSig(level) {
     return;
   }
   const t = S.templates[level];
+  const modeSeg = `<div class="seg"><button data-mode="design" class="${view.sigMode === "design" ? "active" : ""}">Designer</button><button data-mode="code" class="${view.sigMode === "code" ? "active" : ""}">HTML-Code</button></div>`;
+  if (view.sigMode === "design") return renderDesigner(level, modeSeg);
   const replyMode = t["reply.html"] == null && t["reply.txt"] == null ? "same"
     : ((t["reply.html"] || "").trim() === "" && (t["reply.txt"] || "").trim() === "" ? "none" : "own");
   const file = `${view.kind}.${view.fmt === "html" ? "html" : "txt"}`;
@@ -358,6 +401,7 @@ function renderSig(level) {
   const auto = view.fmt === "text" && t[file] == null;
   const keys = knownKeys(isDomain(level) ? level : (isUser ? level.split("@")[1] : ""));
   body.innerHTML = `
+  <div class="sig-toolbar">${modeSeg}${t["design.json"] ? "" : `<span class="hint">Manuell bearbeitetes HTML – der Designer ist für diese Vorlage aus.</span>`}</div>
   <div class="editor-grid">
     <div class="card">
       <div class="editor-bar">
@@ -396,9 +440,21 @@ function previewCard(level) {
       <div class="spacer"></div>
       ${people.length > 1 ? `<select class="input" id="sample" style="width:auto;height:30px;font-size:13px">${people.map(p => `<option ${p === view.sampleUser ? "selected" : ""}>${esc(p)}</option>`).join("")}</select>` : `<span class="hint">${esc(view.sampleUser)}</span>`}
     </div>
+    <div class="preview-bar" style="padding-top:0;border-bottom:1px solid var(--line)">
+      <span class="hint">Darstellung:</span>
+      <div class="seg">
+        <button data-dark="light" class="${view.dark === "light" ? "active" : ""}">Hell</button>
+        <button data-dark="invert" class="${view.dark === "invert" ? "active" : ""}" title="Outlook (Windows, Web, App), Gmail-App: Farben werden umgerechnet, Bilder bleiben unverändert">Dunkel</button>
+        <button data-dark="media" class="${view.dark === "media" ? "active" : ""}" title="Apple Mail, Outlook für Mac/iOS: zusätzlich wird das Darkmode-Logo verwendet">Dunkel + Darkmode-Logo</button>
+      </div>
+    </div>
     <div id="previewBox"></div>
   </div>`;
 }
+
+// Logos liegen öffentlich unter S.asset_url; in der Vorschau über die UI laden (klappt auch im VPN)
+const toLocal = url => (S.asset_url && url.startsWith(S.asset_url)) ? "/assets/" + url.slice(S.asset_url.length) : url;
+const localizeAssets = html => S.asset_url ? html.split(S.asset_url).join(location.origin + "/assets/") : html;
 
 function updatePreview(level) {
   const box = $("#previewBox"); if (!box) return;
@@ -419,7 +475,12 @@ function updatePreview(level) {
     return;
   }
   const reply = view.previewKind === "reply";
-  const doc = `<!doctype html><html><head><meta charset="utf-8"><style>
+  sigHtml = localizeAssets(sigHtml);
+  // Simulation: Clients rechnen Text- und Hintergrundfarben um, Bilder nie
+  if (view.dark === "media") sigHtml = sigHtml.replace(/@media\s*\(prefers-color-scheme:\s*dark\)/g, "@media all");
+  const darkCss = view.dark === "light" ? "" :
+    "html{filter:invert(1) hue-rotate(180deg);background:#fff}img{filter:invert(1) hue-rotate(180deg)}";
+  const doc = `<!doctype html><html><head><meta charset="utf-8"><style>${darkCss}
     body{margin:0;font:14px/1.5 -apple-system,"Segoe UI",Calibri,Arial,sans-serif;color:#1f2937;background:#fff}
     .hdr{padding:14px 18px;border-bottom:1px solid #e5e7eb;background:#fafafa;font-size:13px;color:#4b5563}
     .hdr b{color:#111827}.subj{font-size:16px;font-weight:600;color:#111827;margin-bottom:6px}
@@ -436,8 +497,320 @@ function updatePreview(level) {
   </div>
   <div class="src">${esc(src)}${none ? " · bei Antworten keine Signatur" : ""} · gestrichelt = eingefügte Signatur</div>
   </body></html>`;
-  box.innerHTML = `<iframe class="preview" sandbox="" title="Vorschau"></iframe>`;
+  box.innerHTML = `<iframe class="preview" sandbox="allow-same-origin" title="Vorschau"></iframe>`;
   box.firstChild.srcdoc = doc;
+}
+
+// ------------------------------------------------------------------ Designer
+const DEFAULT_DESIGN = {
+  layout: "side", font: "Arial, Helvetica, sans-serif", size: 13, text: "#333333", accent: "#0b5cad",
+  greeting: "Mit freundlichen Grüßen", divider: true, extra: "", reply: "compact",
+  logo: { url: "", width: 120, alt: "", dark: "" },
+  fields: { title: true, department: false, company: true, address: true, phone: true, mobile: true, email: true, website: true, legal: true },
+};
+const FIELD_LABELS = [["title", "Position"], ["department", "Abteilung"], ["company", "Firma"], ["address", "Adresse"],
+  ["phone", "Telefon"], ["mobile", "Mobil"], ["email", "E-Mail"], ["website", "Website"], ["legal", "Pflichtangaben"]];
+const FONTS = [["Arial, Helvetica, sans-serif", "Arial"], ["Verdana, Geneva, sans-serif", "Verdana"], ["Tahoma, Geneva, sans-serif", "Tahoma"],
+  ["'Segoe UI', Arial, sans-serif", "Segoe UI"], ["'Trebuchet MS', Arial, sans-serif", "Trebuchet MS"], ["Georgia, 'Times New Roman', serif", "Georgia"]];
+
+function getDesign(level) {
+  const raw = S.templates[level] && S.templates[level]["design.json"];
+  if (!raw) return null;
+  try {
+    const d = JSON.parse(raw), base = JSON.parse(JSON.stringify(DEFAULT_DESIGN));
+    return Object.assign(base, d, { logo: Object.assign(base.logo, d.logo), fields: Object.assign(base.fields, d.fields) });
+  } catch { return null; }
+}
+function setPath(obj, path, val) { const p = path.split("."); let o = obj; while (p.length > 1) o = o[p.shift()]; o[p[0]] = val; }
+
+function luminance(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || ""); if (!m) return 0.5;
+  const n = parseInt(m[1], 16), c = [n >> 16, (n >> 8) & 255, n & 255].map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+}
+const contrast = (a, b) => { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+
+// E-Mail-taugliches HTML: Tabellen, Inline-Styles, keine Hintergrundfarben (damit Clients im
+// Darkmode nur die Schrift umrechnen), Logo als gehostetes PNG mit fester Breite.
+function logoHtml(d) {
+  if (!d.logo.url) return "";
+  const w = Math.round(+d.logo.width || 120), alt = esc(d.logo.alt) || "{{Company}}";
+  const st = `border:0;outline:none;text-decoration:none;width:${w}px;max-width:${w}px;height:auto;`;
+  if (!d.logo.dark) return `<img src="${esc(d.logo.url)}" width="${w}" alt="${alt}" style="display:block;${st}">`;
+  return `<style>@media (prefers-color-scheme: dark){.mcsig-logo-light{display:none!important;}.mcsig-logo-dark{display:block!important;}}</style>` +
+    `<img class="mcsig-logo-light" src="${esc(d.logo.url)}" width="${w}" alt="${alt}" style="display:block;${st}">` +
+    `<!--[if !mso]><!--><img class="mcsig-logo-dark" src="${esc(d.logo.dark)}" width="${w}" alt="${alt}" style="display:none;${st}"><!--<![endif]-->`;
+}
+
+function genHtml(d, compact) {
+  const A = d.accent, T = d.text, M = "#666666", S0 = +d.size || 13, F = d.font.replace(/"/g, "'");
+  const font = `font-family:${F};font-size:${S0}px;line-height:1.45;color:${T};`;
+  const tbl = inner => `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin-top:16px;${font}">\n${inner}\n</table>`;
+  const f = d.fields;
+  if (compact) {
+    return tbl(`  <tr><td style="${font}">
+    <strong style="color:${T};">{{DisplayName}}</strong>${f.title ? `{{#Title}} &middot; <span style="color:${M};">{{Title}}</span>{{/Title}}` : ""}<br>
+    <span style="font-size:${S0 - 1}px;color:${M};">${f.company ? "{{#Company}}{{Company}}{{/Company}}" : ""}${f.phone ? "{{#Phone}} &middot; Tel. {{Phone}}{{/Phone}}" : ""}</span>
+  </td></tr>`);
+  }
+  const link = (href, label) => `<a href="${href}" style="color:${A};text-decoration:none;">${label}</a>`;
+  const rows = [];
+  rows.push(`<strong style="font-size:${S0 + 2}px;color:${T};">{{DisplayName}}</strong>` +
+    (f.title ? `{{#Title}}<br><span style="color:${M};">{{Title}}</span>{{/Title}}` : "") +
+    (f.department ? `{{#Department}}<br><span style="color:${M};">{{Department}}</span>{{/Department}}` : ""));
+  const g2 = (f.company ? `{{#Company}}<strong style="color:${A};">{{Company}}</strong><br>{{/Company}}` : "") +
+    (f.address ? "{{#Street}}{{Street}}<br>{{/Street}}{{#City}}{{City}}<br>{{/City}}" : "");
+  if (g2) rows.push(g2);
+  const g3 = (f.phone ? "{{#Phone}}Tel. {{Phone}}<br>{{/Phone}}" : "") + (f.mobile ? "{{#Mobile}}Mobil {{Mobile}}<br>{{/Mobile}}" : "") +
+    (f.email ? `{{#Email}}${link("mailto:{{Email}}", "{{Email}}")}<br>{{/Email}}` : "") +
+    (f.website ? `{{#Website}}${link("https://{{Website}}", "{{Website}}")}{{/Website}}` : "");
+  if (g3) rows.push(g3);
+  const inner = rows.map((r, i) => `      <tr><td style="${font}${i ? "padding-top:8px;" : ""}">${r}</td></tr>`).join("\n");
+  const textCell = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">\n${inner}\n    </table>`;
+  const logo = logoHtml(d);
+  const lines = [];
+  if (d.greeting) lines.push(`  <tr><td colspan="2" style="${font}padding-bottom:12px;">${esc(d.greeting)}</td></tr>`);
+  const bar = d.divider ? `border-left:2px solid ${A};padding-left:16px;` : "";
+  if (logo && d.layout === "side") {
+    lines.push(`  <tr>\n    <td valign="top" style="vertical-align:top;padding-right:16px;">${logo}</td>\n    <td valign="top" style="vertical-align:top;${bar}">${textCell}</td>\n  </tr>`);
+  } else {
+    if (logo) lines.push(`  <tr><td colspan="2" style="padding-bottom:12px;">${logo}</td></tr>`);
+    lines.push(`  <tr><td colspan="2" valign="top" style="vertical-align:top;${d.divider && !logo ? bar : ""}">${textCell}</td></tr>`);
+  }
+  const small = `font-family:${F};font-size:${Math.max(10, S0 - 3)}px;line-height:1.4;color:#888888;padding-top:12px;`;
+  if (f.legal) lines.push(`  {{#Legal}}<tr><td colspan="2" style="${small}">{{Legal}}</td></tr>{{/Legal}}`);
+  if (d.extra) lines.push(`  <tr><td colspan="2" style="${small}">${esc(d.extra)}</td></tr>`);
+  return tbl(lines.join("\n"));
+}
+
+function genText(d, compact) {
+  const f = d.fields;
+  if (compact) return "{{DisplayName}}" + (f.title ? "{{#Title}} · {{Title}}{{/Title}}" : "") + "\n" +
+    (f.company ? "{{#Company}}{{Company}}{{/Company}}" : "") + (f.phone ? "{{#Phone}} · Tel. {{Phone}}{{/Phone}}" : "") + "\n";
+  let t = d.greeting ? d.greeting + "\n" : "";
+  t += "{{DisplayName}}\n" + (f.title ? "{{#Title}}{{Title}}\n{{/Title}}" : "") + (f.department ? "{{#Department}}{{Department}}\n{{/Department}}" : "") + "\n";
+  t += (f.company ? "{{#Company}}{{Company}}\n{{/Company}}" : "") + (f.address ? "{{#Street}}{{Street}}\n{{/Street}}{{#City}}{{City}}\n{{/City}}" : "");
+  t += (f.phone ? "{{#Phone}}Tel. {{Phone}}\n{{/Phone}}" : "") + (f.mobile ? "{{#Mobile}}Mobil {{Mobile}}\n{{/Mobile}}" : "") +
+    (f.email ? "{{#Email}}{{Email}}\n{{/Email}}" : "") + (f.website ? "{{#Website}}{{Website}}\n{{/Website}}" : "");
+  if (f.legal) t += "{{#Legal}}\n{{Legal}}\n{{/Legal}}";
+  if (d.extra) t += "\n" + d.extra + "\n";
+  return t;
+}
+
+function applyDesign(level, d) {
+  const t = S.templates[level];
+  t["design.json"] = JSON.stringify(d, null, 2);
+  t["new.html"] = genHtml(d, false);
+  t["new.txt"] = genText(d, false);
+  if (d.reply === "none") { t["reply.html"] = ""; t["reply.txt"] = ""; }
+  else if (d.reply === "full") { t["reply.html"] = null; t["reply.txt"] = null; }
+  else { t["reply.html"] = genHtml(d, true); t["reply.txt"] = genText(d, true); }
+  markDirty("tpl", level);
+}
+
+function renderDesigner(level, modeSeg) {
+  const body = $("#tabBody"), d = getDesign(level);
+  if (!d) {
+    body.innerHTML = `<div class="sig-toolbar">${modeSeg}</div>
+    <div class="editor-grid"><div class="card"><div class="empty">
+      <div class="icon">${ICON.pen}</div><h3>Signatur mit dem Designer gestalten</h3>
+      <p>Logo, Farben und Felder per Formular einstellen – der Designer erzeugt daraus E-Mail-taugliches HTML für Outlook, Gmail, Apple Mail &amp; Co. Die aktuelle HTML-Vorlage wird dabei ersetzt.</p>
+      <button class="btn primary" data-act="dStart">Designer starten</button>
+    </div></div><div class="preview-wrap">${previewCard(level)}</div></div>`;
+    return updatePreview(level);
+  }
+  const sel = (v, opts) => opts.map(([val, lab]) => `<option value="${esc(val)}" ${val === v ? "selected" : ""}>${esc(lab)}</option>`).join("");
+  const cA = contrast(d.accent, "#ffffff"), cAd = contrast(d.accent, "#1f1f1f");
+  const accentNote = cA < 3 ? `<div class="note warn">Die Akzentfarbe ist auf weißem Hintergrund schwer lesbar (Kontrast ${cA.toFixed(1)}:1).</div>`
+    : cAd < 2.2 ? `<div class="note warn">Die Akzentfarbe wird im Darkmode schwer lesbar (Kontrast ${cAd.toFixed(1)}:1). Ein mittlerer Farbton funktioniert in beiden Modi.</div>` : "";
+  const assets = S.assets || [];
+  body.innerHTML = `<div class="sig-toolbar">${modeSeg}<span class="hint">Änderungen erscheinen sofort in der Vorschau. Gespeichert wird mit „Speichern“ oben rechts.</span></div>
+  <div class="editor-grid">
+    <div class="stack">
+      <div class="card dcard">
+        <h3>Logo</h3>
+        <p class="sub">Am besten PNG mit transparentem Hintergrund, mindestens doppelt so breit wie angezeigt. SVG wird automatisch in PNG umgewandelt, weil Outlook und Gmail kein SVG anzeigen.</p>
+        ${d.logo.url ? `<div class="logo-stage">
+          <div class="logo-bg light"><span>HELL</span><img src="${esc(toLocal(d.logo.url))}" alt=""></div>
+          <div class="logo-bg dark"><span>DUNKEL</span><img src="${esc(toLocal(d.logo.dark || d.logo.url))}" alt=""></div>
+        </div>
+        <div id="logoInfo" class="note">Logo wird geprüft …</div>
+        <div id="pubInfo" class="note">Öffentliche Erreichbarkeit wird geprüft …</div>` : `<div class="note">Noch kein Logo gewählt.</div>`}
+        <div class="btn-row">
+          <button class="btn sm primary" data-act="dUpload">${d.logo.url ? "Anderes Logo hochladen" : "Logo hochladen"}</button>
+          ${assets.length ? `<button class="btn sm" data-act="dLib">${view.showLib ? "Bibliothek ausblenden" : `Aus Bibliothek (${assets.length})`}</button>` : ""}
+          ${d.logo.url ? `<button class="btn sm danger" data-act="dLogoRemove">Logo entfernen</button>` : ""}
+        </div>
+        ${view.showLib ? `<div class="lib">${assets.map(a => `<div class="lib-item ${a.url === d.logo.url ? "sel" : ""}" data-act="dPick" data-url="${esc(a.url)}" title="${esc(a.name)}"><img src="/assets/${esc(a.name)}" alt=""><button class="icon-btn" data-act="dAssetDel" data-name="${esc(a.name)}" title="Aus Bibliothek löschen">${ICON.trash}</button></div>`).join("")}</div>` : ""}
+        ${d.logo.url ? `
+        <div class="drow"><label>Breite</label><div style="display:flex;gap:10px;align-items:center"><input type="range" min="40" max="300" step="2" value="${d.logo.width}" data-d="logo.width"><span class="mono" id="wLabel">${d.logo.width}px</span></div></div>
+        <div class="drow"><label>Alternativtext</label><input class="input" data-d="logo.alt" value="${esc(d.logo.alt)}" placeholder="Firmenname – wird gezeigt, wenn Bilder blockiert sind"></div>
+        <div style="border-top:1px solid var(--line);margin:6px 0 12px"></div>
+        <b style="font-size:13px">Darkmode-Schutz</b>
+        <p class="sub" style="margin-top:2px">Mailprogramme färben im Darkmode Text und Hintergrund um, Bilder aber nie. Ein dunkles Logo mit transparentem Hintergrund verschwindet dann auf dunklem Grund.</p>
+        <div class="btn-row">
+          <button class="btn sm" data-act="dHalo" title="Legt eine schmale weiße Kontur um das Logo – funktioniert in allen Mailprogrammen">Weiße Kontur hinzufügen</button>
+          <button class="btn sm" data-act="dPlate" title="Setzt das Logo auf eine weiße Fläche mit runden Ecken – funktioniert in allen Mailprogrammen">Weiße Fläche einbacken</button>
+          <button class="btn sm" data-act="dDarkUpload" title="Wird nur in Apple Mail, Outlook für Mac/iOS und anderen Programmen mit Darkmode-CSS verwendet">${d.logo.dark ? "Darkmode-Logo ersetzen" : "Darkmode-Logo hochladen"}</button>
+          ${d.logo.dark ? `<button class="btn sm danger" data-act="dDarkRemove">Darkmode-Logo entfernen</button>` : ""}
+        </div>` : ""}
+        <input type="file" id="logoFile" accept="image/png,image/jpeg,image/gif,image/svg+xml" class="hidden">
+        <input type="file" id="darkFile" accept="image/png,image/jpeg,image/gif,image/svg+xml" class="hidden">
+      </div>
+
+      <div class="card dcard">
+        <h3>Aufbau &amp; Farben</h3><p class="sub">Dunkelgraue Schrift und keine Hintergrundfarben – so rechnen Mailprogramme die Farben im Darkmode sauber um.</p>
+        <div class="drow"><label>Anordnung</label><div class="seg"><button data-dset="layout" data-val="side" class="${d.layout === "side" ? "active" : ""}">Logo links</button><button data-dset="layout" data-val="stacked" class="${d.layout === "stacked" ? "active" : ""}">Logo oben</button></div></div>
+        <div class="drow"><label>Trennlinie</label><label class="radio" style="border:0;padding:0"><input type="checkbox" data-d="divider" ${d.divider ? "checked" : ""}> Farbige Linie neben dem Text</label></div>
+        <div class="drow"><label>Schrift</label><select class="input" data-d="font">${sel(d.font, FONTS)}</select></div>
+        <div class="drow"><label>Schriftgröße</label><select class="input" data-d="size">${sel(String(d.size), [["12", "12 px"], ["13", "13 px"], ["14", "14 px"], ["15", "15 px"]])}</select></div>
+        <div class="drow"><label>Textfarbe</label><div class="color-in"><input type="color" data-d="text" value="${esc(d.text)}"><span class="mono">${esc(d.text)}</span></div></div>
+        <div class="drow"><label>Akzentfarbe</label><div class="color-in"><input type="color" data-d="accent" value="${esc(d.accent)}"><span class="mono">${esc(d.accent)}</span></div></div>
+        ${accentNote}
+      </div>
+
+      <div class="card dcard">
+        <h3>Inhalt</h3><p class="sub">Die Werte kommen aus „Firmendaten“ und „Personen“. Leere Felder werden automatisch weggelassen.</p>
+        <div class="drow"><label>Grußformel</label><input class="input" data-d="greeting" value="${esc(d.greeting)}" placeholder="leer = keine Grußformel"></div>
+        <div class="drow" style="align-items:start"><label>Felder</label><div class="checks">${FIELD_LABELS.map(([k, l]) => `<label><input type="checkbox" data-d="fields.${k}" ${d.fields[k] ? "checked" : ""}> ${l}</label>`).join("")}</div></div>
+        <div class="drow"><label>Zusatzzeile</label><input class="input" data-d="extra" value="${esc(d.extra)}" placeholder="z. B. Hinweis zum Datenschutz"></div>
+      </div>
+
+      <div class="card dcard">
+        <h3>Antworten &amp; Weiterleitungen</h3><p class="sub">Wird direkt über dem zitierten Verlauf eingefügt.</p>
+        <div class="reply-mode" style="padding:0;border:0">
+          <label class="radio"><input type="radio" name="drm" value="compact" ${d.reply === "compact" ? "checked" : ""}> Kurz (Name, Firma, Telefon)</label>
+          <label class="radio"><input type="radio" name="drm" value="full" ${d.reply === "full" ? "checked" : ""}> Wie bei neuer Mail</label>
+          <label class="radio"><input type="radio" name="drm" value="none" ${d.reply === "none" ? "checked" : ""}> Keine Signatur</label>
+        </div>
+      </div>
+
+      <details class="card dcard help">
+        <summary>Darkmode in den Mailprogrammen – was passiert wo?</summary>
+        <table>
+          <tr><th>Mailprogramm</th><th>Verhalten im Darkmode</th></tr>
+          <tr><td>Outlook Windows (neu &amp; klassisch), Outlook im Web</td><td>Rechnet Text- und Hintergrundfarben um. Bilder bleiben, Darkmode-CSS wird ignoriert.</td></tr>
+          <tr><td>Outlook iOS/Android</td><td>Rechnet Farben um, wertet teils Darkmode-CSS aus.</td></tr>
+          <tr><td>Gmail (App)</td><td>Rechnet Farben um, teilweise vollständig invertiert. Kein Darkmode-CSS.</td></tr>
+          <tr><td>Gmail (Browser)</td><td>Zeigt Mails meist hell an.</td></tr>
+          <tr><td>Apple Mail (macOS/iOS), Outlook für Mac</td><td>Dunkle Darstellung, Darkmode-CSS wird unterstützt → Darkmode-Logo wird angezeigt.</td></tr>
+          <tr><td>Thunderbird</td><td>Dunkle Darstellung, Darkmode-CSS meist unterstützt.</td></tr>
+        </table>
+        <p class="hint" style="margin-top:10px"><b>Empfehlung:</b> transparentes PNG plus „Weiße Kontur“ (oder ein Logo, das auf Hell und Dunkel funktioniert). Ein zusätzliches Darkmode-Logo ist ein Bonus für Apple Mail &amp; Co., ersetzt den Schutz aber nicht. Hintergrundfarben in der Signatur vermeiden.</p>
+      </details>
+    </div>
+    <div class="preview-wrap">${previewCard(level)}</div>
+  </div>
+  <div style="display:flex;justify-content:flex-end;margin-top:16px">
+    ${level !== "default" ? `<button class="btn danger sm" data-act="dropOwn">${ICON.trash} Eigene Signatur löschen (wieder Standard verwenden)</button>` : ""}
+  </div>`;
+  updatePreview(level);
+  if (d.logo.url) { analyzeLogo(d); probePublic(d.logo.url); }
+}
+
+// ---- Logo-Verarbeitung im Browser (Canvas)
+async function loadImage(src) {
+  const img = new Image(); img.src = src; await img.decode(); return img;
+}
+function imageToCanvas(img, maxW) {
+  let w = img.naturalWidth || 600, h = img.naturalHeight || 200;
+  if (!img.naturalWidth) { w = 600; h = 200; }
+  const scale = Math.min(1, maxW / w);
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round(w * scale)); c.height = Math.max(1, Math.round(h * scale));
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
+function analyzeCanvas(c) {
+  const data = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+  let transparent = 0, opaque = 0, lum = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    const a = data[i + 3];
+    if (a < 250) transparent++;
+    if (a > 128) { opaque++; lum += (0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255; }
+  }
+  const total = data.length / 4;
+  return { transparent: transparent / total > 0.02, lum: opaque ? lum / opaque : 1, w: c.width, h: c.height };
+}
+function outlineCanvas(src) {
+  const r = Math.max(2, Math.round(src.width / 90));
+  const sil = document.createElement("canvas"); sil.width = src.width; sil.height = src.height;
+  const sc = sil.getContext("2d"); sc.drawImage(src, 0, 0); sc.globalCompositeOperation = "source-in"; sc.fillStyle = "#ffffff"; sc.fillRect(0, 0, sil.width, sil.height);
+  const out = document.createElement("canvas"); out.width = src.width + 2 * r; out.height = src.height + 2 * r;
+  const oc = out.getContext("2d");
+  for (let a = 0; a < 360; a += 12) oc.drawImage(sil, r + Math.cos(a * Math.PI / 180) * r, r + Math.sin(a * Math.PI / 180) * r);
+  oc.drawImage(src, r, r);
+  return out;
+}
+function plateCanvas(src) {
+  const p = Math.max(8, Math.round(Math.min(src.width, src.height) * 0.12));
+  const out = document.createElement("canvas"); out.width = src.width + 2 * p; out.height = src.height + 2 * p;
+  const oc = out.getContext("2d"); oc.fillStyle = "#ffffff";
+  oc.beginPath(); oc.roundRect(0, 0, out.width, out.height, Math.round(p * 0.8)); oc.fill();
+  oc.drawImage(src, p, p);
+  return out;
+}
+async function uploadCanvas(c) {
+  const blob = await new Promise(res => c.toBlob(res, "image/png"));
+  const res = await fetch("/api/assets", { method: "POST", credentials: "same-origin", body: blob,
+    headers: { "Content-Type": "image/png", "X-Requested-With": "sigui" } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Upload fehlgeschlagen");
+  S.assets = [data, ...(S.assets || []).filter(a => a.name !== data.name)];
+  return data;
+}
+async function fileToAsset(file) {
+  if (file.size > 8 * 1024 * 1024) throw new Error("Datei ist zu groß (max. 8 MB vor dem Verkleinern)");
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(url);
+    // 600 px reichen für bis zu 300 px Anzeigebreite auf Retina-Displays
+    return await uploadCanvas(imageToCanvas(img, 600));
+  } finally { URL.revokeObjectURL(url); }
+}
+async function transformLogo(level, fn, label) {
+  const d = getDesign(level);
+  try {
+    const img = await loadImage(toLocal(d.logo.url));
+    const out = fn(imageToCanvas(img, 2000));
+    const ratio = out.width / (img.naturalWidth || out.width);
+    const a = await uploadCanvas(imageToCanvas(await loadImage(out.toDataURL("image/png")), 640));
+    d.logo.url = a.url;
+    d.logo.protect = fn === outlineCanvas ? "outline" : "plate";
+    d.logo.width = Math.min(300, Math.round(d.logo.width * ratio));
+    applyDesign(level, d); renderMain(); toast(label);
+  } catch (err) { toast("Logo konnte nicht bearbeitet werden: " + err.message, true); }
+}
+async function analyzeLogo(d) {
+  const box = $("#logoInfo"); if (!box) return;
+  const local = toLocal(d.logo.url);
+  if (!local.startsWith("/assets/")) { box.className = "note"; box.textContent = "Externes Logo – keine automatische Prüfung möglich."; return; }
+  try {
+    const img = await loadImage(local);
+    const a = analyzeCanvas(imageToCanvas(img, 400));
+    const natural = img.naturalWidth, sharp = natural >= d.logo.width * 2;
+    let cls = "ok", msg;
+    if (d.logo.protect === "outline") { msg = `<b>Darkmode-Schutz aktiv:</b> weiße Kontur – das Logo bleibt auf hellem und dunklem Hintergrund sichtbar.`; }
+    else if (d.logo.protect === "plate") { msg = `<b>Darkmode-Schutz aktiv:</b> weiße Fläche – das Logo sieht überall gleich aus.`; }
+    else if (a.transparent && a.lum < 0.35) { cls = "warn"; msg = `<b>Dunkles Logo mit transparentem Hintergrund:</b> verschwindet im Darkmode fast. Empfehlung: „Weiße Kontur hinzufügen“.`; }
+    else if (a.transparent && a.lum > 0.8) { cls = "warn"; msg = `<b>Helles Logo mit transparentem Hintergrund:</b> auf weißem Hintergrund kaum sichtbar. Empfehlung: dunkle Variante hochladen und diese als Darkmode-Logo nutzen.`; }
+    else if (!a.transparent) { msg = `<b>Logo mit eigenem Hintergrund:</b> bleibt in hellen und dunklen Mailprogrammen gleich sichtbar.`; }
+    else { msg = `<b>Transparentes Logo mit mittlerer Helligkeit:</b> sollte auf Hell und Dunkel lesbar sein – prüfe es in der Vorschau unter „Dunkel“.`; }
+    msg += ` <span class="mono">${natural}×${img.naturalHeight}px</span>` + (sharp ? "" : ` – <b>etwas klein</b> für scharfe Darstellung (ideal ≥ ${d.logo.width * 2}px breit).`);
+    box.className = "note " + cls; box.innerHTML = msg;
+  } catch { box.className = "note err"; box.textContent = "Logo konnte nicht geladen werden."; }
+}
+function probePublic(url) {
+  const box = $("#pubInfo"); if (!box) return;
+  const img = new Image();
+  const done = ok => {
+    if (!$("#pubInfo")) return;
+    box.className = "note " + (ok ? "ok" : "err");
+    box.innerHTML = ok ? `Öffentlich erreichbar: <span class="mono">${esc(url)}</span>`
+      : `<b>Nicht öffentlich erreichbar:</b> <span class="mono">${esc(url)}</span> – Empfänger sehen das Logo so nicht. Liegt die Datei unter <span class="mono">data/web/sig-assets/</span> und stimmt der Hostname?`;
+  };
+  img.onload = () => done(true); img.onerror = () => done(false);
+  img.src = url + (url.includes("?") ? "&" : "?") + "check=" + Date.now();
 }
 
 function renderVars(level) {
@@ -576,8 +949,63 @@ document.addEventListener("click", async e => {
   if (act === "lockName") { S.users[addr].DisplayNameLocked = el.checked || undefined; if (!el.checked) delete S.users[addr].DisplayNameLocked; return markDirty("users"); }
   if (act === "sync") {
     if (isDirty()) return toast("Bitte erst speichern.", true);
-    try { const r = await api("POST", "/api/sync"); toast(`${r.mailboxes} Postfächer · ${r.added} neu · ${r.updated} Namen aktualisiert`); await load(); }
+    try {
+      const r = await api("POST", "/api/sync");
+      const dm = (r.domains_added || []).length ? ` · neue Domains: ${r.domains_added.join(", ")}` : " · keine neuen Domains";
+      toast(`${r.mailboxes} Postfächer · ${r.added} neu · ${r.updated} Namen aktualisiert${dm}`); await load();
+    } catch (err) { toast(err.message, true); }
+  }
+  // Designer
+  if (act === "dStart") {
+    const t = S.templates[lvl];
+    if ((t["new.html"] || "").trim() && !confirm("Der Designer ersetzt die aktuelle HTML-Vorlage. Fortfahren?")) return;
+    applyDesign(lvl, JSON.parse(JSON.stringify(DEFAULT_DESIGN))); return renderMain();
+  }
+  if (act === "dUpload") return $("#logoFile").click();
+  if (act === "dDarkUpload") return $("#darkFile").click();
+  if (act === "dLib") { view.showLib = !view.showLib; return renderMain(); }
+  if (act === "dAssetDel") {
+    e.stopPropagation();
+    if (!confirm("Bild aus der Bibliothek löschen? Bereits verschickte Mails, die es verwenden, zeigen es dann nicht mehr an.")) return;
+    try { await api("DELETE", "/api/assets/" + encodeURIComponent(el.dataset.name)); S.assets = S.assets.filter(a => a.name !== el.dataset.name); renderMain(); }
     catch (err) { toast(err.message, true); }
+    return;
+  }
+  if (act === "dPick") { const d = getDesign(lvl); d.logo.url = el.dataset.url; d.logo.protect = ""; applyDesign(lvl, d); return renderMain(); }
+  if (act === "dLogoRemove") { const d = getDesign(lvl); d.logo.url = ""; d.logo.dark = ""; applyDesign(lvl, d); return renderMain(); }
+  if (act === "dDarkRemove") { const d = getDesign(lvl); d.logo.dark = ""; applyDesign(lvl, d); return renderMain(); }
+  if (act === "dHalo") return transformLogo(lvl, outlineCanvas, "Weiße Kontur hinzugefügt");
+  if (act === "dPlate") return transformLogo(lvl, plateCanvas, "Logo auf weiße Fläche gesetzt");
+});
+
+function designUpdate(path, val, rerender) {
+  const d = getDesign(view.level); if (!d) return;
+  setPath(d, path, val); applyDesign(view.level, d);
+  if (rerender) return renderMain();
+  clearTimeout(updatePreview.t); updatePreview.t = setTimeout(() => updatePreview(view.level), 120);
+}
+document.addEventListener("click", e => {
+  const m = e.target.closest("[data-mode],[data-dark],[data-dset]"); if (!m) return;
+  if (m.dataset.mode) { view.sigMode = m.dataset.mode; return renderMain(); }
+  if (m.dataset.dark) { view.dark = m.dataset.dark; document.querySelectorAll("[data-dark]").forEach(b => b.classList.toggle("active", b === m)); return updatePreview(view.level); }
+  if (m.dataset.dset) return designUpdate(m.dataset.dset, m.dataset.val, true);
+});
+document.addEventListener("change", async e => {
+  const t = e.target;
+  if (t.id === "logoFile" || t.id === "darkFile") {
+    const file = t.files[0]; if (!file) return;
+    try {
+      toast("Logo wird verarbeitet …");
+      const a = await fileToAsset(file), d = getDesign(view.level);
+      if (t.id === "logoFile") { d.logo.url = a.url; d.logo.protect = ""; } else d.logo.dark = a.url;
+      applyDesign(view.level, d); renderMain(); toast("Logo hochgeladen");
+    } catch (err) { toast(err.message, true); }
+    return;
+  }
+  if (t.name === "drm") return designUpdate("reply", t.value, true);
+  if (t.dataset.d) {
+    const v = t.type === "checkbox" ? t.checked : (t.type === "range" || t.dataset.d === "size") ? Number(t.value) : t.value;
+    return designUpdate(t.dataset.d, v, t.type !== "text" && t.type !== "range");
   }
 });
 
@@ -605,7 +1033,16 @@ document.addEventListener("change", e => {
 
 document.addEventListener("input", e => {
   const t = e.target;
+  if (t.dataset.d && (t.type === "text" || t.type === "range" || t.type === "color")) {
+    if (t.type === "range") $("#wLabel").textContent = t.value + "px";
+    if (t.type === "color") t.nextElementSibling.textContent = t.value;
+    return designUpdate(t.dataset.d, t.type === "range" ? Number(t.value) : t.value, false);
+  }
   if (t.id === "code") {
+    if (S.templates[view.level]["design.json"]) {
+      S.templates[view.level]["design.json"] = null;
+      toast("HTML wird jetzt manuell gepflegt – der Designer ist für diese Vorlage aus.");
+    }
     S.templates[view.level][`${view.kind}.${view.fmt === "html" ? "html" : "txt"}`] = t.value;
     markDirty("tpl", view.level);
     clearTimeout(updatePreview.t); updatePreview.t = setTimeout(() => updatePreview(view.level), 150);

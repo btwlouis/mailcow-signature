@@ -194,6 +194,8 @@ fix_permissions() {
 
 install_ui() {
   mkdir -p data/signature-ui
+  # Logos: von mailcows nginx öffentlich ausgeliefert unter https://<host>/sig-assets/
+  mkdir -p data/web/sig-assets && chmod 0755 data/web/sig-assets
   install -m 0644 "$SRC/data/signature-ui/app.py" data/signature-ui/app.py
   install -m 0644 "$SRC/data/signature-ui/index.html" data/signature-ui/index.html
 
@@ -222,11 +224,13 @@ ${i}${i}command: ["python", "/app/app.py", "--data", "/data", "--bind", "0.0.0.0
 ${i}${i}environment:
 ${i}${i}${i}- SIGNATURE_UI_PASSWORD=\${SIGNATURE_UI_PASSWORD}
 ${i}${i}${i}- MAILCOW_URL=https://\${MAILCOW_HOSTNAME}
+${i}${i}${i}- SIGNATURE_ASSET_URL=https://\${MAILCOW_HOSTNAME}/sig-assets/
 ${i}${i}${i}- MAILCOW_API_KEY=\${SIGNATURE_UI_API_KEY:-}
 ${i}${i}${i}- TZ=\${TZ}
 ${i}${i}volumes:
 ${i}${i}${i}- ./data/signature-ui:/app:ro,z
 ${i}${i}${i}- ./data/conf/rspamd/local.d/mailcow-signature:/data:z
+${i}${i}${i}- ./data/web/sig-assets:/assets:z
 ${i}${i}ports:
 ${i}${i}${i}- "\${SIGNATURE_UI_BIND:-127.0.0.1}:8090:8090"
 ${i}${i}networks:
@@ -331,11 +335,11 @@ uninstall() {
   fi
   rm -f "$RSPAMD/custom/mailcow_signature.lua"
   rm -rf data/signature-ui
-  if [ "$purge" = 1 ]; then rm -rf "$SIGDIR"; info "Signature configuration deleted"; fi
+  if [ "$purge" = 1 ]; then rm -rf "$SIGDIR" data/web/sig-assets; info "Signature configuration and logos deleted"; fi
   sed -i -e '/^# mailcow-signature web UI$/d' -e '/^SIGNATURE_UI_PASSWORD=/d' -e '/^SIGNATURE_UI_API_KEY=/d'     -e '/^SIGNATURE_UI_BIND=/d' mailcow.conf
   "${COMPOSE[@]}" restart rspamd-mailcow >/dev/null
   info "mailcow-signature removed (backup: $BACKUP)"
-  [ "$purge" = 1 ] || echo "    Templates and config kept in $SIGDIR (use --uninstall --purge to delete)."
+  [ "$purge" = 1 ] || echo "    Templates/config kept in $SIGDIR, logos in data/web/sig-assets (use --uninstall --purge to delete)."
 }
 
 main "$@"
