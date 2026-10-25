@@ -17,7 +17,7 @@ export const DEMO_ADDR = "max.mustermann@example.com";
 
 // Demo-Werte als Fallback, echte Firmendaten haben Vorrang
 export function demoVars(S, domain) {
-  const v = buildVars(S, DEMO_ADDR, domain || "example.com");
+  const v = buildVars(S, DEMO_ADDR, domain || "");
   for (const [k, val] of Object.entries(DEMO)) if (!nonempty(S.users[DEMO_ADDR]?.[k]) && !nonempty((S.config.vars || {})["*"]?.[k]) && !nonempty((S.config.vars || {})[domain]?.[k])) v[k] = val;
   v.DisplayName = DEMO.DisplayName;
   return v;
@@ -48,7 +48,7 @@ export function signatureDoc(S, sigHtml, { reply = false, dark = "light", vars, 
 }
 
 // level: Vorschau wie sie für eine Domain/Person gilt; design: direkt eine Signatur
-export default function Preview({ level = "default", design, sigId }) {
+export default function Preview({ level = "default", design, sigId, domain: designDomain = null }) {
   const { S, T } = useStore();
   const [kind, setKind] = useState("new");
   const [dark, setDark] = useState("light");
@@ -58,7 +58,7 @@ export default function Preview({ level = "default", design, sigId }) {
   useEffect(() => { if (sample && !people.includes(sample)) setSample(people[0] || ""); }, [people.join(), sample]);
 
   const addr = sample || DEMO_ADDR, domain = sample ? sample.split("@")[1] : dom;
-  const vars = sample ? buildVars(S, sample, domain) : demoVars(S, dom);
+  const vars = sample ? buildVars(S, sample, domain) : demoVars(S, design ? designDomain : isDomain(level) ? level : null);
   let r;
   if (design) {
     const t = templatesFor(sigId || "preview", design);

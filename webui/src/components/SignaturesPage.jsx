@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useStore } from "../App.jsx";
 import { PRESETS, genHtml, normalizeDesign } from "../lib/design.js";
-import { newId } from "../lib/sync.js";
-import { domains, render } from "../lib/template.js";
+import { domainOf, newId } from "../lib/sync.js";
+import { render } from "../lib/template.js";
 import { demoVars, signatureDoc } from "./Preview.jsx";
 import { Icon } from "./ui.jsx";
 
@@ -12,11 +12,11 @@ const DEMO_LOGO = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(
   '<circle cx="40" cy="40" r="22" fill="#0F688D"/><text x="74" y="50" font-family="Arial" font-size="28" font-weight="bold" fill="#0F688D">LOGO</text></svg>');
 
 // Kleine Vorschau einer Signatur (skaliert, nicht klickbar)
-export function Thumb({ design, height = 150, demoLogo }) {
+export function Thumb({ design, height = 150, demoLogo, domain = null }) {
   const { S } = useStore();
   const d = normalizeDesign(design);
   if (demoLogo && !d.logo.url && d.layout !== "minimal") d.logo = { ...d.logo, url: DEMO_LOGO, width: 110 };
-  const html = render(genHtml(d, false), demoVars(S, domains(S)[0]), true);
+  const html = render(genHtml(d, false), demoVars(S, domain), true);
   return (
     <div className="relative overflow-hidden bg-white border-b border-mc-border dark:border-mc-d-border" style={{ height }}>
       <iframe title="Vorschau" sandbox="allow-same-origin" tabIndex={-1} scrolling="no" srcDoc={signatureDoc(S, html, { frame: false })}
@@ -83,7 +83,7 @@ export default function SignaturesPage() {
             const used = usedBy(id);
             return (
               <div key={id} className="card overflow-hidden flex flex-col">
-                <button className="text-left" onClick={() => setNav({ page: "sig", id })}><Thumb design={e.design} /></button>
+                <button className="text-left" onClick={() => setNav({ page: "sig", id })}><Thumb design={e.design} domain={domainOf(S, id)} /></button>
                 <div className="p-3 flex-1">
                   <div className="font-semibold">{e.name}</div>
                   <div className="mt-1 flex flex-wrap gap-1">

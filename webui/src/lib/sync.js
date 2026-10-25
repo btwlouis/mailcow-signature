@@ -47,4 +47,7 @@ export function migrate(S) {
   return changed;
 }
 
+export const domainOf = (S, id) =>
+  Object.entries(S.config.signatures || {}).find(([l, v]) => v === id && l !== "default" && !l.includes("@"))?.[0] || null;
+
 export const newId = () => "sig_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);

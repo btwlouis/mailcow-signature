@@ -3,6 +3,7 @@ import { useStore } from "../App.jsx";
 import { FIELD_LABELS, FONTS, LAYOUTS, contrast, normalizeDesign } from "../lib/design.js";
 import { analyzeCanvas, fileToAsset, imageToCanvas, loadImage, transformAsset } from "../lib/logo.js";
 import Preview, { toLocal } from "./Preview.jsx";
+import { domainOf } from "../lib/sync.js";
 import { Card, Icon, Row, Seg } from "./ui.jsx";
 
 // Bearbeitet eine Signatur aus der Bibliothek; Domains/Personen verweisen per config.signatures darauf
@@ -59,7 +60,6 @@ export default function SignatureEditor({ id }) {
         </div>
       </div>
       <div className="grid gap-4 xl:grid-cols-2 items-start">
-  return (
     <div className="space-y-4">
       <Card title="Logo" actions={busy && <span className="font-normal muted text-[12px]">verarbeite …</span>}>
         {d.logo.url && (
@@ -166,8 +166,7 @@ export default function SignatureEditor({ id }) {
         </Row>
       </Card>
     </div>
-  );
-        <div className="xl:sticky xl:top-[68px]"><Preview design={d} sigId={id} /></div>
+        <div className="xl:sticky xl:top-[68px]"><Preview design={d} sigId={id} domain={domainOf(S, id)} /></div>
       </div>
     </div>
   );
