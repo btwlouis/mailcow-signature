@@ -25,6 +25,9 @@ import urllib.request
 from http import cookies
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+DIST = os.path.join(HERE, "dist")
+STATIC_TYPES = {"js": "text/javascript; charset=utf-8", "css": "text/css; charset=utf-8", "svg": "image/svg+xml",
+                "png": "image/png", "woff2": "font/woff2"}
 TEMPLATE_FILES = ("new.html", "new.txt", "reply.html", "reply.txt", "design.json")
 ASSET_RE = re.compile(r"^[a-f0-9]{16}\.(png|jpg|gif)$")
 ASSET_TYPES = {"png": "image/png", "jpg": "image/jpeg", "gif": "image/gif"}
@@ -297,14 +300,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
+        if "Cache-Control" not in (extra or {}):
+            self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy",
                          "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
                          "font-src https://fonts.gstatic.com; img-src * data: blob:; frame-src 'self'; "
-                         "script-src 'self' 'unsafe-inline'")
+                         "script-src 'self'")
         for k, v in (extra or {}).items():
             self.send_header(k, v)
         self.end_headers()
@@ -342,8 +346,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
     # Routen
     def do_GET(self):
         if self.path in ("/", "/index.html"):
-            with open(os.path.join(HERE, "index.html"), "rb") as f:
+            with open(os.path.join(DIST, "index.html"), "rb") as f:
                 return self.send(200, f.read(), "text/html; charset=utf-8")
+        if self.path.startswith("/static/"):
+            # React-Build (webui/ -> dist/static)
+            name = self.path[len("/static/"):].split("?", 1)[0]
+            p = os.path.join(DIST, "static", name)
+            ext = name.rsplit(".", 1)[-1]
+            if re.match(r"^[\w.-]+$", name) and ext in STATIC_TYPES and os.path.isfile(p):
+                with open(p, "rb") as f:
+                    return self.send(200, f.read(), STATIC_TYPES[ext], extra={"Cache-Control": "public, max-age=31536000, immutable"})
         if self.path == "/api/state":
             if not self.api_guard():
                 return

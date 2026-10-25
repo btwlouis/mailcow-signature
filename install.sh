@@ -199,7 +199,10 @@ install_ui() {
   # Logos: von mailcows nginx öffentlich ausgeliefert unter https://<host>/sig-assets/
   mkdir -p data/web/sig-assets && chmod 0755 data/web/sig-assets
   install -m 0644 "$SRC/data/signature-ui/app.py" data/signature-ui/app.py
-  install -m 0644 "$SRC/data/signature-ui/index.html" data/signature-ui/index.html
+  # gebaute React-Oberfläche (webui/ -> data/signature-ui/dist)
+  rm -rf data/signature-ui/dist data/signature-ui/index.html
+  cp -r "$SRC/data/signature-ui/dist" data/signature-ui/dist
+  chmod -R a+rX data/signature-ui
 
   if ! grep -q '^SIGNATURE_UI_PASSWORD=.\+' mailcow.conf; then
     UI_PASSWORD="$(head -c 256 /dev/urandom | tr -dc 'A-Za-z0-9' | cut -c1-24)"

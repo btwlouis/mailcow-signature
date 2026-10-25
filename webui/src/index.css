@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* mailcow-Look: Lumen/Bootstrap-Basis mit den mailcow-Farben (014-mailcow.css, mailcow-darkmode.css) */
+@layer base {
+  html { font-size: 14px; }
+  body { @apply bg-mc-bg text-mc-text font-sans antialiased dark:bg-mc-d-bg dark:text-mc-d-text; }
+  a { @apply text-mc-primary hover:underline dark:text-mc-d-link; }
+  ::selection { background: #148DBC33; }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 h-[34px] px-3 rounded border border-b-[3px] text-[13px] font-medium
+      whitespace-nowrap select-none transition-[filter,background-color] disabled:opacity-50 disabled:cursor-default;
+  }
+  .btn-sm { @apply h-[28px] px-2.5 text-[12.5px]; }
+  .btn-primary { @apply bg-mc-primary border-mc-primary-border text-white hover:brightness-110; }
+  .btn-info { @apply bg-mc-info border-mc-info-border text-white hover:brightness-110; }
+  .btn-success { @apply bg-mc-success border-[#1f8f22] text-white hover:brightness-110; }
+  .btn-danger { @apply bg-mc-danger border-[#e21207] text-white hover:brightness-110; }
+  .btn-default {
+    @apply bg-white border-[#cfcfcf] text-black hover:bg-[#f0f0f0]
+      dark:bg-[#5e5e5e] dark:border-[#4c4c4e] dark:text-mc-d-text dark:hover:bg-[#6a6a6a];
+  }
+  .btn-active { @apply bg-[#555] border-[#4d4d4d] text-white hover:bg-[#555] dark:bg-[#242424] dark:border-[#1c1c1e]; }
+
+  .card { @apply bg-mc-surface border border-mc-border rounded dark:bg-mc-d-surface dark:border-mc-d-border; }
+  .card-header {
+    @apply flex items-center gap-2 px-4 py-2.5 border-b border-mc-border bg-mc-alt font-semibold rounded-t
+      dark:bg-mc-d-alt dark:border-mc-d-border;
+  }
+  .card-body { @apply p-4; }
+
+  .form-control {
+    @apply w-full h-[34px] px-2.5 rounded border border-[#cfcfcf] bg-white text-mc-text outline-none
+      focus:border-mc-info focus:ring-2 focus:ring-mc-info/20
+      dark:bg-mc-d-input dark:border-[#999] dark:text-[#e2e2e2];
+  }
+  textarea.form-control { @apply h-auto py-2; }
+  .form-label { @apply block text-[13px] font-semibold mb-1; }
+
+  .nav-tabs { @apply flex gap-0.5 border-b border-mc-border dark:border-[#444]; }
+  .nav-tab {
+    @apply px-4 py-2 -mb-px rounded-t border border-transparent text-mc-info hover:bg-mc-alt cursor-pointer
+      dark:text-mc-d-link dark:hover:bg-mc-d-alt;
+  }
+  .nav-tab-active {
+    @apply bg-mc-surface border-mc-border border-b-mc-surface text-mc-text hover:bg-mc-surface
+      dark:bg-mc-d-surface dark:border-[#444] dark:border-b-mc-d-surface dark:text-mc-d-text;
+  }
+
+  .mc-item {
+    @apply flex items-center gap-2 w-full px-3 py-2 border-b last:border-b-0 border-mc-border text-left
+      hover:bg-mc-alt dark:border-mc-d-border dark:hover:bg-mc-d-alt;
+  }
+  .mc-item-active { @apply bg-mc-primary text-white hover:bg-mc-primary dark:hover:bg-mc-primary; }
+
+  .badge { @apply inline-block px-1.5 py-px rounded text-[11px] font-semibold leading-4; }
+  .alert { @apply rounded border px-3 py-2 text-[13px]; }
+  .alert-success { @apply bg-[#dff0d8] border-[#c3e6b4] text-[#2b6a2d] dark:bg-[#1f3a20] dark:border-[#2d5a2f] dark:text-[#9fd89f]; }
+  .alert-warning { @apply bg-[#fff3cd] border-[#ffe69c] text-[#7a5200] dark:bg-[#3b3218] dark:border-[#5a4a1e] dark:text-[#f1cf7c]; }
+  .alert-danger { @apply bg-[#f8d7da] border-[#f1aeb5] text-[#842029] dark:bg-[#3d1d20] dark:border-[#6a2d33] dark:text-[#f2a7ae]; }
+  .alert-info { @apply bg-[#e6f3f8] border-[#bfe0ed] text-[#0c4a64] dark:bg-[#1b3440] dark:border-[#2c5466] dark:text-[#9fd3ea]; }
+
+  .muted { @apply text-mc-muted; }
+  .chip {
+    @apply font-mono text-[12px] px-1.5 py-0.5 rounded border border-[#cfcfcf] bg-white hover:border-mc-info hover:text-mc-info
+      dark:bg-mc-d-input dark:border-[#7a7a7a];
+  }
+  .table-mc th { @apply text-left text-[12px] font-semibold px-3 py-2 bg-mc-alt border-b border-mc-border dark:bg-mc-d-alt dark:border-mc-d-border; }
+  .table-mc td { @apply px-3 py-1.5 border-b border-mc-border align-middle dark:border-mc-d-border; }
+}
+
+.checker {
+  background-image: linear-gradient(45deg, #e5e7eb 25%, transparent 25%), linear-gradient(-45deg, #e5e7eb 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e5e7eb 75%), linear-gradient(-45deg, transparent 75%, #e5e7eb 75%);
+  background-size: 14px 14px;
+  background-position: 0 0, 0 7px, 7px -7px, -7px 0;
+}

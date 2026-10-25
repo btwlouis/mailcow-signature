@@ -39,18 +39,28 @@ jobs:
           sudo apt-get install -y -qq luajit >/dev/null
           luajit -bl data/conf/rspamd/custom/mailcow_signature.lua > /dev/null
           luajit -bl data/conf/rspamd/local.d/rspamd.lua > /dev/null
-      - name: Web UI JavaScript syntax
-        run: |
-          python - <<'EOF'
-          import re
-          html = open("data/signature-ui/index.html", encoding="utf-8").read()
-          js = "\n".join(re.findall(r"<script>(.*?)</script>", html, re.S))
-          open("/tmp/ui.js", "w", encoding="utf-8").write(js)
-          EOF
-          node --check /tmp/ui.js
       - name: JSON files
         run: |
           for f in $(git ls-files '*.json'); do python -m json.tool "$f" > /dev/null || exit 1; done
+
+  webui:
+    name: Web UI build (React)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: webui/package-lock.json
+      - run: npm ci
+        working-directory: webui
+      - run: npm run build
+        working-directory: webui
+      - name: Committed build is up to date
+        run: |
+          git status --porcelain data/signature-ui/dist
+          test -z "$(git status --porcelain data/signature-ui/dist)" || { echo "::error::data/signature-ui/dist is outdated – run 'npm run build' in webui/ and commit"; exit 1; }
 
   installer:
     name: Installer (fake mailcow)

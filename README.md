@@ -122,7 +122,8 @@ Then continue with the steps after the quick install.
 | `data/web/sig-assets/` | uploaded logos (public, served by mailcow's nginx) |
 | `data/conf/rspamd/local.d/rspamd.lua` | loader (rspamd loads it automatically) |
 | `data/conf/rspamd/local.d/mailcow-signature/` | `config.json`, `users.json`, `templates/<default\|domain\|address>/{new,reply}.{html,txt}` |
-| `data/signature-ui/` | web UI (Python stdlib only) |
+| `data/signature-ui/` | web UI server (`app.py`, Python stdlib) and the built React app (`dist/`) |
+| `webui/` | web UI source (React + Tailwind, Vite) |
 | `install.sh` | one-shot installer / updater / uninstaller |
 | `tools/sync_users.py` | sync display names from the mailcow API (CLI alternative to the UI button) |
 
@@ -131,6 +132,15 @@ Then continue with the steps after the quick install.
 - The copy in *Sent Items* has no signature, because the client saves it before the server adds the signature. M365 and Exclaimer behave the same in server mode.
 - Unknown clients without a recognizable quote marker get the signature at the end.
 - Single-part plain-text mails in `7bit`/`us-ascii` get non-ASCII characters transliterated (ü → ue).
+
+## Web UI development
+
+```bash
+cd webui
+npm ci
+npm run dev      # dev server, proxies /api to app.py on :8090
+npm run build    # writes data/signature-ui/dist (commit it, CI checks it is up to date)
+```
 
 ## Tests
 
