@@ -360,9 +360,9 @@ function renderMain() {
   const lvl = view.level, dom = isDomain(lvl), person = lvl.includes("@");
   const title = lvl === "default" ? "Standard-Signatur" : (person ? "Persönliche Signatur" : lvl);
   const sub = lvl === "default"
-    ? "Gilt für alle Domains und Personen ohne eigene Signatur."
+    ? ""
     : person ? `${esc(lvl)} · <a href="#" data-nav="level" data-level="${esc(lvl.split("@")[1])}">zurück zu ${esc(lvl.split("@")[1])}</a>`
-    : (hasOwn(lvl) ? "Diese Domain hat eine eigene Signatur." : "Diese Domain verwendet die Standard-Signatur.") + ` · ${usersOf(lvl).length === 1 ? "1 Person" : usersOf(lvl).length + " Personen"}`;
+    : `${usersOf(lvl).length === 1 ? "1 Person" : usersOf(lvl).length + " Personen"}`;
   const tabs = person ? [["sig", "Signatur"]] : [["sig", "Signatur"], ["vars", lvl === "default" ? "Firmendaten (global)" : "Firmendaten"]];
   if (dom) tabs.push(["users", "Personen"]);
   if (!tabs.find(t => t[0] === view.tab)) view.tab = "sig";
@@ -382,10 +382,9 @@ function renderSig(level) {
   if (!hasOwn(level)) {
     body.innerHTML = `<div class="card"><div class="empty">
       <div class="icon">${ICON.pen}</div>
-      <h3>Verwendet die Standard-Signatur</h3>
-      <p>${isUser ? "Diese Person" : "Diese Domain"} bekommt aktuell die Standard-Signatur. Lege eine eigene an, wenn ${isUser ? "sie" : "die Domain"} anders aussehen soll, z. B. mit anderem Logo oder anderen Firmendaten.</p>
+      <h3>Standard-Signatur aktiv</h3>
+      
       <button class="btn primary" data-act="createOwn">Eigene Signatur anlegen</button>
-      <div class="hint" style="margin-top:10px">Die Standard-Signatur wird als Ausgangspunkt kopiert.</div>
     </div></div>
     <div style="margin-top:20px">${previewCard(level)}</div>`;
     updatePreview(level);
@@ -401,7 +400,7 @@ function renderSig(level) {
   const auto = view.fmt === "text" && t[file] == null;
   const keys = knownKeys(isDomain(level) ? level : (isUser ? level.split("@")[1] : ""));
   body.innerHTML = `
-  <div class="sig-toolbar">${modeSeg}${t["design.json"] ? "" : `<span class="hint">Manuell bearbeitetes HTML – der Designer ist für diese Vorlage aus.</span>`}</div>
+  <div class="sig-toolbar">${modeSeg}</div>
   <div class="editor-grid">
     <div class="card">
       <div class="editor-bar">
@@ -613,8 +612,8 @@ function renderDesigner(level, modeSeg) {
   if (!d) {
     body.innerHTML = `<div class="sig-toolbar">${modeSeg}</div>
     <div class="editor-grid"><div class="card"><div class="empty">
-      <div class="icon">${ICON.pen}</div><h3>Signatur mit dem Designer gestalten</h3>
-      <p>Logo, Farben und Felder per Formular einstellen – der Designer erzeugt daraus E-Mail-taugliches HTML für Outlook, Gmail, Apple Mail &amp; Co. Die aktuelle HTML-Vorlage wird dabei ersetzt.</p>
+      <div class="icon">${ICON.pen}</div><h3>Designer</h3>
+      
       <button class="btn primary" data-act="dStart">Designer starten</button>
     </div></div><div class="preview-wrap">${previewCard(level)}</div></div>`;
     return updatePreview(level);
@@ -624,18 +623,17 @@ function renderDesigner(level, modeSeg) {
   const accentNote = cA < 3 ? `<div class="note warn">Die Akzentfarbe ist auf weißem Hintergrund schwer lesbar (Kontrast ${cA.toFixed(1)}:1).</div>`
     : cAd < 2.2 ? `<div class="note warn">Die Akzentfarbe wird im Darkmode schwer lesbar (Kontrast ${cAd.toFixed(1)}:1). Ein mittlerer Farbton funktioniert in beiden Modi.</div>` : "";
   const assets = S.assets || [];
-  body.innerHTML = `<div class="sig-toolbar">${modeSeg}<span class="hint">Änderungen erscheinen sofort in der Vorschau. Gespeichert wird mit „Speichern“ oben rechts.</span></div>
+  body.innerHTML = `<div class="sig-toolbar">${modeSeg}</div>
   <div class="editor-grid">
     <div class="stack">
       <div class="card dcard">
         <h3>Logo</h3>
-        <p class="sub">Am besten PNG mit transparentem Hintergrund, mindestens doppelt so breit wie angezeigt. SVG wird automatisch in PNG umgewandelt, weil Outlook und Gmail kein SVG anzeigen.</p>
         ${d.logo.url ? `<div class="logo-stage">
           <div class="logo-bg light"><span>HELL</span><img src="${esc(toLocal(d.logo.url))}" alt=""></div>
           <div class="logo-bg dark"><span>DUNKEL</span><img src="${esc(toLocal(d.logo.dark || d.logo.url))}" alt=""></div>
         </div>
-        <div id="logoInfo" class="note">Logo wird geprüft …</div>
-        <div id="pubInfo" class="note">Öffentliche Erreichbarkeit wird geprüft …</div>` : `<div class="note">Noch kein Logo gewählt.</div>`}
+        <div id="logoInfo" class="note">…</div>
+        <div id="pubInfo" class="note">…</div>` : ``}
         <div class="btn-row">
           <button class="btn sm primary" data-act="dUpload">${d.logo.url ? "Anderes Logo hochladen" : "Logo hochladen"}</button>
           ${assets.length ? `<button class="btn sm" data-act="dLib">${view.showLib ? "Bibliothek ausblenden" : `Aus Bibliothek (${assets.length})`}</button>` : ""}
@@ -644,10 +642,9 @@ function renderDesigner(level, modeSeg) {
         ${view.showLib ? `<div class="lib">${assets.map(a => `<div class="lib-item ${a.url === d.logo.url ? "sel" : ""}" data-act="dPick" data-url="${esc(a.url)}" title="${esc(a.name)}"><img src="/assets/${esc(a.name)}" alt=""><button class="icon-btn" data-act="dAssetDel" data-name="${esc(a.name)}" title="Aus Bibliothek löschen">${ICON.trash}</button></div>`).join("")}</div>` : ""}
         ${d.logo.url ? `
         <div class="drow"><label>Breite</label><div style="display:flex;gap:10px;align-items:center"><input type="range" min="40" max="300" step="2" value="${d.logo.width}" data-d="logo.width"><span class="mono" id="wLabel">${d.logo.width}px</span></div></div>
-        <div class="drow"><label>Alternativtext</label><input class="input" data-d="logo.alt" value="${esc(d.logo.alt)}" placeholder="Firmenname – wird gezeigt, wenn Bilder blockiert sind"></div>
+        <div class="drow"><label>Alternativtext</label><input class="input" data-d="logo.alt" value="${esc(d.logo.alt)}" placeholder="Firmenname"></div>
         <div style="border-top:1px solid var(--line);margin:6px 0 12px"></div>
-        <b style="font-size:13px">Darkmode-Schutz</b>
-        <p class="sub" style="margin-top:2px">Mailprogramme färben im Darkmode Text und Hintergrund um, Bilder aber nie. Ein dunkles Logo mit transparentem Hintergrund verschwindet dann auf dunklem Grund.</p>
+        <b style="font-size:13px;display:block;margin-bottom:8px">Darkmode</b>
         <div class="btn-row">
           <button class="btn sm" data-act="dHalo" title="Legt eine schmale weiße Kontur um das Logo – funktioniert in allen Mailprogrammen">Weiße Kontur hinzufügen</button>
           <button class="btn sm" data-act="dPlate" title="Setzt das Logo auf eine weiße Fläche mit runden Ecken – funktioniert in allen Mailprogrammen">Weiße Fläche einbacken</button>
@@ -659,9 +656,9 @@ function renderDesigner(level, modeSeg) {
       </div>
 
       <div class="card dcard">
-        <h3>Aufbau &amp; Farben</h3><p class="sub">Dunkelgraue Schrift und keine Hintergrundfarben – so rechnen Mailprogramme die Farben im Darkmode sauber um.</p>
+        <h3>Aufbau &amp; Farben</h3>
         <div class="drow"><label>Anordnung</label><div class="seg"><button data-dset="layout" data-val="side" class="${d.layout === "side" ? "active" : ""}">Logo links</button><button data-dset="layout" data-val="stacked" class="${d.layout === "stacked" ? "active" : ""}">Logo oben</button></div></div>
-        <div class="drow"><label>Trennlinie</label><label class="radio" style="border:0;padding:0"><input type="checkbox" data-d="divider" ${d.divider ? "checked" : ""}> Farbige Linie neben dem Text</label></div>
+        <div class="drow"><label>Trennlinie</label><label class="radio" style="border:0;padding:0"><input type="checkbox" data-d="divider" ${d.divider ? "checked" : ""}> anzeigen</label></div>
         <div class="drow"><label>Schrift</label><select class="input" data-d="font">${sel(d.font, FONTS)}</select></div>
         <div class="drow"><label>Schriftgröße</label><select class="input" data-d="size">${sel(String(d.size), [["12", "12 px"], ["13", "13 px"], ["14", "14 px"], ["15", "15 px"]])}</select></div>
         <div class="drow"><label>Textfarbe</label><div class="color-in"><input type="color" data-d="text" value="${esc(d.text)}"><span class="mono">${esc(d.text)}</span></div></div>
@@ -670,34 +667,21 @@ function renderDesigner(level, modeSeg) {
       </div>
 
       <div class="card dcard">
-        <h3>Inhalt</h3><p class="sub">Die Werte kommen aus „Firmendaten“ und „Personen“. Leere Felder werden automatisch weggelassen.</p>
-        <div class="drow"><label>Grußformel</label><input class="input" data-d="greeting" value="${esc(d.greeting)}" placeholder="leer = keine Grußformel"></div>
+        <h3>Inhalt</h3>
+        <div class="drow"><label>Grußformel</label><input class="input" data-d="greeting" value="${esc(d.greeting)}" placeholder="leer = keine"></div>
         <div class="drow" style="align-items:start"><label>Felder</label><div class="checks">${FIELD_LABELS.map(([k, l]) => `<label><input type="checkbox" data-d="fields.${k}" ${d.fields[k] ? "checked" : ""}> ${l}</label>`).join("")}</div></div>
-        <div class="drow"><label>Zusatzzeile</label><input class="input" data-d="extra" value="${esc(d.extra)}" placeholder="z. B. Hinweis zum Datenschutz"></div>
+        <div class="drow"><label>Zusatzzeile</label><input class="input" data-d="extra" value="${esc(d.extra)}" placeholder="optional"></div>
       </div>
 
       <div class="card dcard">
-        <h3>Antworten &amp; Weiterleitungen</h3><p class="sub">Wird direkt über dem zitierten Verlauf eingefügt.</p>
+        <h3>Antworten</h3>
         <div class="reply-mode" style="padding:0;border:0">
-          <label class="radio"><input type="radio" name="drm" value="compact" ${d.reply === "compact" ? "checked" : ""}> Kurz (Name, Firma, Telefon)</label>
+          <label class="radio"><input type="radio" name="drm" value="compact" ${d.reply === "compact" ? "checked" : ""}> Kurz</label>
           <label class="radio"><input type="radio" name="drm" value="full" ${d.reply === "full" ? "checked" : ""}> Wie bei neuer Mail</label>
           <label class="radio"><input type="radio" name="drm" value="none" ${d.reply === "none" ? "checked" : ""}> Keine Signatur</label>
         </div>
       </div>
 
-      <details class="card dcard help">
-        <summary>Darkmode in den Mailprogrammen – was passiert wo?</summary>
-        <table>
-          <tr><th>Mailprogramm</th><th>Verhalten im Darkmode</th></tr>
-          <tr><td>Outlook Windows (neu &amp; klassisch), Outlook im Web</td><td>Rechnet Text- und Hintergrundfarben um. Bilder bleiben, Darkmode-CSS wird ignoriert.</td></tr>
-          <tr><td>Outlook iOS/Android</td><td>Rechnet Farben um, wertet teils Darkmode-CSS aus.</td></tr>
-          <tr><td>Gmail (App)</td><td>Rechnet Farben um, teilweise vollständig invertiert. Kein Darkmode-CSS.</td></tr>
-          <tr><td>Gmail (Browser)</td><td>Zeigt Mails meist hell an.</td></tr>
-          <tr><td>Apple Mail (macOS/iOS), Outlook für Mac</td><td>Dunkle Darstellung, Darkmode-CSS wird unterstützt → Darkmode-Logo wird angezeigt.</td></tr>
-          <tr><td>Thunderbird</td><td>Dunkle Darstellung, Darkmode-CSS meist unterstützt.</td></tr>
-        </table>
-        <p class="hint" style="margin-top:10px"><b>Empfehlung:</b> transparentes PNG plus „Weiße Kontur“ (oder ein Logo, das auf Hell und Dunkel funktioniert). Ein zusätzliches Darkmode-Logo ist ein Bonus für Apple Mail &amp; Co., ersetzt den Schutz aber nicht. Hintergrundfarben in der Signatur vermeiden.</p>
-      </details>
     </div>
     <div class="preview-wrap">${previewCard(level)}</div>
   </div>
@@ -790,24 +774,24 @@ async function analyzeLogo(d) {
     const a = analyzeCanvas(imageToCanvas(img, 400));
     const natural = img.naturalWidth, sharp = natural >= d.logo.width * 2;
     let cls = "ok", msg;
-    if (d.logo.protect === "outline") { msg = `<b>Darkmode-Schutz aktiv:</b> weiße Kontur – das Logo bleibt auf hellem und dunklem Hintergrund sichtbar.`; }
-    else if (d.logo.protect === "plate") { msg = `<b>Darkmode-Schutz aktiv:</b> weiße Fläche – das Logo sieht überall gleich aus.`; }
-    else if (a.transparent && a.lum < 0.35) { cls = "warn"; msg = `<b>Dunkles Logo mit transparentem Hintergrund:</b> verschwindet im Darkmode fast. Empfehlung: „Weiße Kontur hinzufügen“.`; }
-    else if (a.transparent && a.lum > 0.8) { cls = "warn"; msg = `<b>Helles Logo mit transparentem Hintergrund:</b> auf weißem Hintergrund kaum sichtbar. Empfehlung: dunkle Variante hochladen und diese als Darkmode-Logo nutzen.`; }
-    else if (!a.transparent) { msg = `<b>Logo mit eigenem Hintergrund:</b> bleibt in hellen und dunklen Mailprogrammen gleich sichtbar.`; }
-    else { msg = `<b>Transparentes Logo mit mittlerer Helligkeit:</b> sollte auf Hell und Dunkel lesbar sein – prüfe es in der Vorschau unter „Dunkel“.`; }
-    msg += ` <span class="mono">${natural}×${img.naturalHeight}px</span>` + (sharp ? "" : ` – <b>etwas klein</b> für scharfe Darstellung (ideal ≥ ${d.logo.width * 2}px breit).`);
+    if (d.logo.protect === "outline") { msg = `Darkmode-Schutz: weiße Kontur ✓`; }
+    else if (d.logo.protect === "plate") { msg = `Darkmode-Schutz: weiße Fläche ✓`; }
+    else if (a.transparent && a.lum < 0.35) { cls = "warn"; msg = `Dunkel + transparent: im Darkmode kaum sichtbar → „Weiße Kontur“`; }
+    else if (a.transparent && a.lum > 0.8) { cls = "warn"; msg = `Hell + transparent: auf Weiß kaum sichtbar → dunkle Variante hochladen, diese als Darkmode-Logo`; }
+    else if (!a.transparent) { msg = `Eigener Hintergrund ✓`; }
+    else { msg = `Transparent, mittlere Helligkeit – in der Vorschau „Dunkel“ prüfen`; }
+    msg += ` <span class="mono">${natural}×${img.naturalHeight}px</span>` + (sharp ? "" : ` · zu klein für scharfe Darstellung (≥ ${d.logo.width * 2}px)`);
     box.className = "note " + cls; box.innerHTML = msg;
   } catch { box.className = "note err"; box.textContent = "Logo konnte nicht geladen werden."; }
 }
 function probePublic(url) {
   const box = $("#pubInfo"); if (!box) return;
+  if (S.config.logo_mode === "embed") { box.className = "note ok"; box.textContent = "Wird eingebettet ✓"; return; }
   const img = new Image();
   const done = ok => {
     if (!$("#pubInfo")) return;
     box.className = "note " + (ok ? "ok" : "err");
-    box.innerHTML = ok ? `Öffentlich erreichbar: <span class="mono">${esc(url)}</span>`
-      : `<b>Nicht öffentlich erreichbar:</b> <span class="mono">${esc(url)}</span> – Empfänger sehen das Logo so nicht. Liegt die Datei unter <span class="mono">data/web/sig-assets/</span> und stimmt der Hostname?`;
+    box.innerHTML = ok ? `Öffentlich erreichbar ✓` : `Nicht öffentlich erreichbar: <span class="mono">${esc(url)}</span>`;
   };
   img.onload = () => done(true); img.onerror = () => done(false);
   img.src = url + (url.includes("?") ? "&" : "?") + "check=" + Date.now();
@@ -820,7 +804,6 @@ function renderVars(level) {
   const rows = Object.entries(vars);
   $("#tabBody").innerHTML = `<div class="card card-pad" style="max-width:820px">
     <h3>${level === "default" ? "Globale Firmendaten" : "Firmendaten für " + esc(level)}</h3>
-    <p class="sub">${level === "default" ? "Werte, die in allen Signaturen als Platzhalter verfügbar sind, z. B. <code>{{Company}}</code>." : "Überschreiben die globalen Werte für diese Domain. Leere Felder werden ignoriert."}</p>
     <div id="kvRows">${rows.map(([k, v], i) => kvRow(k, v, i)).join("")}</div>
     <button class="btn sm" data-act="kvAdd">+ Feld hinzufügen</button>
     ${level !== "default" ? `<div class="hint" style="margin-top:14px">Geerbt (global): ${Object.entries(S.config.vars["*"] || {}).map(([k, v]) => `<code>${esc(k)}</code>=${esc(v)}`).join(" · ") || "–"}</div>` : ""}
@@ -881,28 +864,35 @@ function collectUserExtra(a) {
 
 function renderSettings() {
   const c = S.config;
-  const sw = (key, title, text, def) => `<div class="toggle-row"><label class="switch"><input type="checkbox" data-cfg="${key}" ${(c[key] ?? def) ? "checked" : ""}><i></i></label><div class="txt"><b>${title}</b><span>${text}</span></div></div>`;
-  const list = (key, title, text) => `<label class="field"><span>${title}</span><textarea class="input mono" rows="4" data-cfglist="${key}">${esc((c[key] || []).join("\n"))}</textarea><div class="hint">${text}</div></label>`;
+  const sw = (key, title, text, def) => `<div class="toggle-row"><label class="switch"><input type="checkbox" data-cfg="${key}" ${(c[key] ?? def) ? "checked" : ""}><i></i></label><div class="txt"><b>${title}</b>${text ? `<span>${text}</span>` : ""}</div></div>`;
+  const list = (key, title, ph) => `<label class="field"><span>${title}</span><textarea class="input mono" rows="3" data-cfglist="${key}" placeholder="${ph}">${esc((c[key] || []).join("\n"))}</textarea></label>`;
+  const mode = c.logo_mode || "link";
   $("#main").innerHTML = `
-    <div class="page-head"><div><h2>Einstellungen</h2><p>Gilt für alle Domains. Änderungen greifen nach spätestens einer Minute, ohne Neustart.</p></div></div>
+    <div class="page-head"><div><h2>Einstellungen</h2></div></div>
     <div class="settings-grid">
-      <div class="card card-pad"><h3>Verhalten</h3><p class="sub">Grundlegende Schalter.</p>
-        ${sw("enabled", "Signaturen aktiv", "Hauptschalter für das Plugin.", true)}
-        ${sw("dry_run", "Testmodus (dry run)", "Nichts verändern, nur ins rspamd-Log schreiben, was passieren würde.", false)}
+      <div class="card card-pad">
+        ${sw("enabled", "Signaturen aktiv", "", true)}
+        ${sw("dry_run", "Testmodus", "Nur loggen, nichts einfügen", false)}
         <div class="${c.dry_run ? "" : "hidden"}" id="liveBox" style="padding:4px 0 14px 54px">
-          ${list("live_senders", "Live-Tester", "Diese Absender bekommen die Signatur trotz Testmodus <b>wirklich</b> eingefügt, z. B. du selbst. Alle anderen bleiben im Testmodus.")}
+          ${list("live_senders", "Live-Tester (bekommen trotzdem die Signatur)", "du@firma.de")}
         </div>
-        ${sw("skip_calendar", "Kalendereinladungen auslassen", "Einladungen und Zusagen bleiben unverändert (empfohlen).", true)}
-        ${sw("require_auth", "Nur angemeldete Absender", "Signatur nur für per SMTP-AUTH/SOGo angemeldete Benutzer bzw. aus vertrauenswürdigen Netzen.", true)}
-        ${sw("skip_internal", "Interne Mails auslassen", "Keine Signatur, wenn alle Empfänger in den internen Domains liegen.", false)}
+        ${sw("skip_calendar", "Kalendereinladungen auslassen", "", true)}
+        ${sw("require_auth", "Nur angemeldete Absender", "", true)}
+        ${sw("skip_internal", "Interne Mails auslassen", "", false)}
+        <div class="toggle-row" style="display:block">
+          <b>Logo</b>
+          <div class="reply-mode" style="padding:8px 0 0;border:0">
+            <label class="radio" title="Klein, aber klassisches Outlook fragt bei externen Absendern vor dem Anzeigen"><input type="radio" name="logomode" value="link" ${mode === "link" ? "checked" : ""}> Verlinkt</label>
+            <label class="radio" title="Wird überall sofort angezeigt, Mail hat eine Büroklammer"><input type="radio" name="logomode" value="embed" ${mode === "embed" ? "checked" : ""}> Eingebettet</label>
+          </div>
+        </div>
       </div>
-      <div class="card card-pad"><h3>Listen</h3><p class="sub">Ein Eintrag pro Zeile.</p>
-        ${list("exclude_senders", "Ausgenommene Absender", "Diese Adressen bekommen nie eine Signatur, z. B. noreply@…")}
-        ${list("internal_domains", "Interne Domains", "Nur relevant, wenn „Interne Mails auslassen“ aktiv ist.")}
-        ${list("trusted_networks", "Vertrauenswürdige Netze", "Mails ohne Anmeldung aus diesen Netzen werden ebenfalls signiert (mailcow-intern: 172.22.1.0/24).")}
+      <div class="card card-pad">
+        ${list("exclude_senders", "Ausgenommene Absender", "noreply@firma.de")}
+        ${list("internal_domains", "Interne Domains", "firma.de")}
+        ${list("trusted_networks", "Vertrauenswürdige Netze", "172.22.1.0/24")}
       </div>
-    </div>
-    <div class="card card-pad" style="margin-top:20px"><h3>Hinweis</h3><p class="sub" style="margin:0">Die Signatur wird nur für Domains eingefügt, die links unter „Domains“ stehen. Für diese Domains den „Domain wide footer“ in mailcow leer lassen, sonst kommen zwei Signaturen. Verschlüsselte und signierte Mails (S/MIME, PGP) werden nie verändert.</p></div>`;
+    </div>`;
 }
 
 // ------------------------------------------------------------------ Events
@@ -1003,6 +993,7 @@ document.addEventListener("change", async e => {
     return;
   }
   if (t.name === "drm") return designUpdate("reply", t.value, true);
+  if (t.name === "logomode") { S.config.logo_mode = t.value; return markDirty("config"); }
   if (t.dataset.d) {
     const v = t.type === "checkbox" ? t.checked : (t.type === "range" || t.dataset.d === "size") ? Number(t.value) : t.value;
     return designUpdate(t.dataset.d, v, t.type !== "text" && t.type !== "range");

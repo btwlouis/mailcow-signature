@@ -61,6 +61,7 @@ def fix_permissions():
 def permission_watchdog():
     while True:
         try:
+            sync_assets()
             fix_permissions()
         except OSError as e:
             print("fix_permissions: %s" % e)
@@ -148,6 +149,8 @@ def validate_config(cfg):
     for key in ("enabled", "dry_run", "require_auth", "skip_internal", "skip_calendar"):
         if key in cfg and not isinstance(cfg[key], bool):
             raise ValueError("%s muss true/false sein" % key)
+    if cfg.get("logo_mode", "link") not in ("link", "embed"):
+        raise ValueError("logo_mode muss link oder embed sein")
     if "vars" in cfg and not isinstance(cfg["vars"], dict):
         raise ValueError("vars muss ein Objekt sein")
     cfg["domains"] = sorted({d.strip().lower() for d in cfg.get("domains", []) if d.strip()})
@@ -194,7 +197,25 @@ def save_asset(data: bytes):
     path = os.path.join(ASSETS, name)
     if not os.path.exists(path):
         atomic_write(path, data)
+    sync_assets()
     return {"name": name, "url": ASSET_URL + name, "size": len(data)}
+
+
+def sync_assets():
+    """Kopie der Logos in den rspamd-Ordner, damit das Plugin sie einbetten kann."""
+    if not os.path.isdir(ASSETS):
+        return
+    target = os.path.join(DATA, "assets")
+    os.makedirs(target, mode=0o755, exist_ok=True)
+    present = set(n for n in os.listdir(ASSETS) if ASSET_RE.match(n))
+    for name in present:
+        dst = os.path.join(target, name)
+        if not os.path.exists(dst):
+            shutil.copyfile(os.path.join(ASSETS, name), dst)
+            os.chmod(dst, 0o644)
+    for name in os.listdir(target):
+        if ASSET_RE.match(name) and name not in present:
+            os.remove(os.path.join(target, name))
 
 
 def list_assets():
@@ -213,9 +234,9 @@ def list_assets():
 def delete_asset(name):
     if not ASSET_RE.match(name):
         raise ValueError("Ungueltiger Dateiname")
-    p = os.path.join(ASSETS, name)
-    if os.path.exists(p):
-        os.remove(p)
+    for p in (os.path.join(ASSETS, name), os.path.join(DATA, "assets", name)):
+        if os.path.exists(p):
+            os.remove(p)
 
 
 def mailcow_api(path):

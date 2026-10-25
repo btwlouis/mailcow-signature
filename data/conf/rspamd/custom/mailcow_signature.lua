@@ -28,6 +28,7 @@ M.defaults = {
   enabled = true,
   dry_run = false,
   live_senders = {},
+  logo_mode = 'link', -- 'link' (oeffentliche URL) oder 'embed' (Anhang, CID)
   domains = {},
   require_auth = true,
   trusted_networks = {},
@@ -287,10 +288,13 @@ function M.parse_entity(s, i, j, depth, top)
           local pe = a - 1
           if s:sub(pe, pe) == '\n' then pe = pe - 1 end
           if s:sub(pe, pe) == '\r' then pe = pe - 1 end
-          node.children[#node.children + 1] = M.parse_entity(s, part_start, pe, depth + 1, false)
+          local child = M.parse_entity(s, part_start, pe, depth + 1, false)
+          child.parent = node
+          node.children[#node.children + 1] = child
         end
         if after == '--' then
           node.closed = true
+          node.close_at = a -- Beginn von "--boundary--"
           break
         end
         local eol = s:find('\n', a + #delim, true)
@@ -329,7 +333,9 @@ function M.walk(node, ctx)
   if node.ct:sub(1, 10) == 'multipart/' then
     for _, ch in ipairs(node.children) do M.walk(ch, ctx) end
   else
-    ctx.leaves[#ctx.leaves + 1] = node.ct
+    -- von uns eingebettete Logos werden bei der Strukturpruefung ausgeklammert
+    local own = (node.hdr['content-id'] or ''):find('^%s*<mcsig%.') ~= nil
+    ctx.leaves[#ctx.leaves + 1] = own and '#mcsig' or node.ct
     if not is_attachment(node) then
       if node.ct == 'text/html' and not ctx.html then ctx.html = node end
       if node.ct == 'text/plain' and not ctx.plain then ctx.plain = node end
@@ -761,6 +767,43 @@ function M.apply(msg, opts)
     or html_to_text(M.render(tpl_html, opts.vars, true))
   sig_text = trim(sig_text:gsub('[ \t]+\r?\n', '\n'):gsub('[ \t]+$', ''))
 
+  -- Logos einbetten (CID): nur wenn der HTML-Teil nicht selbst die ganze Mail ist,
+  -- denn Top-Level-Header koennen per Milter nicht sicher geaendert werden -> dann Link.
+  local images = {}
+  if opts.embed and ctx.html and not ctx.html.top and opts.read_asset then
+    local seen = {}
+    sig_html = sig_html:gsub('src="([^"]-/sig%-assets/)([0-9a-f]+%.[a-z]+)"', function(prefix, name)
+      if not seen[name] then
+        local data = opts.read_asset(name)
+        if not data or data == '' then return nil end
+        local ext = name:match('%.([a-z]+)$')
+        seen[name] = {
+          cid = 'mcsig.' .. name:gsub('%.', '-') .. '.' .. (opts.seed or '0') .. '@signature',
+          name = name, data = data,
+          ct = (ext == 'jpg' and 'image/jpeg') or (ext == 'gif' and 'image/gif') or 'image/png',
+        }
+        images[#images + 1] = seen[name]
+      end
+      return 'src="cid:' .. seen[name].cid .. '"'
+    end)
+  end
+
+  local function image_parts(boundary)
+    local out = {}
+    for i, img in ipairs(images) do
+      local fname = 'logo' .. (i > 1 and tostring(i) or '') .. '.' .. img.name:match('%.([a-z]+)$')
+      out[#out + 1] = '--' .. boundary .. nl
+        .. 'Content-Type: ' .. img.ct .. '; name="' .. fname .. '"' .. nl
+        .. 'Content-Transfer-Encoding: base64' .. nl
+        .. 'Content-ID: <' .. img.cid .. '>' .. nl
+        .. 'Content-Disposition: inline; filename="' .. fname .. '"' .. nl .. nl
+        .. M.b64_encode(img.data, nl) .. nl
+    end
+    return table.concat(out)
+  end
+
+  local ops = {} -- {start, stop, text}: Bytes start..stop werden durch text ersetzt
+
   for _, job in ipairs(jobs) do
     local node, c = job.node, job.content
     local cnl = c:find('\r\n', 1, true) and '\r\n' or (c:find('\n', 1, true) and '\n' or nl)
@@ -833,34 +876,55 @@ function M.apply(msg, opts)
     if check ~= c then return nil, 'skip: encoder self-test failed' end
 
     enc = enc:gsub('[\r\n]+$', '')
-    if job.raw:find('\n$') then enc = enc .. nl end
-    job.new_body = enc
-    if new_cte ~= node.cte or new_charset then
-      local h = msg:sub(node.hs, node.he)
-      if new_cte ~= node.cte then h = set_header(h, 'Content-Transfer-Encoding', new_cte, nl) end
-      if new_charset then h = set_header(h, 'Content-Type', build_ct(node.ct, node.params, new_charset), nl) end
-      job.new_header = h
+    local h = msg:sub(node.hs, node.he)
+    local h_changed = false
+    if new_cte ~= node.cte then h = set_header(h, 'Content-Transfer-Encoding', new_cte, nl); h_changed = true end
+    if new_charset then h = set_header(h, 'Content-Type', build_ct(node.ct, node.params, new_charset), nl); h_changed = true end
+
+    -- naechstes multipart/related oberhalb (z. B. Outlook: related{alternative{text, html}, bilder})
+    local parent = node.parent
+    while parent and parent.ct ~= 'multipart/related' do parent = parent.parent end
+    if job.html and #images > 0 and parent and parent.close_at then
+      -- vorhandenes multipart/related: Logos vor dem schliessenden Boundary anhaengen
+      ops[#ops + 1] = { parent.close_at, parent.close_at - 1, image_parts(parent.params.boundary) }
+    elseif job.html and #images > 0 then
+      -- HTML-Teil in ein neues multipart/related einpacken
+      local b = '----=_mcsig_rel_' .. (opts.seed or '0')
+      local entity = 'Content-Type: multipart/related;' .. nl .. '\tboundary="' .. b .. '";' .. nl .. '\ttype="text/html"'
+        .. nl .. nl .. '--' .. b .. nl .. h .. msg:sub(node.he + 1, node.bs - 1) .. enc .. nl
+        .. image_parts(b) .. '--' .. b .. '--'
+      if job.raw:find('\n$') then entity = entity .. nl end
+      ops[#ops + 1] = { node.hs, node.be, entity }
+      job.wrapped = true
+    end
+    if not job.wrapped then
+      if job.raw:find('\n$') then enc = enc .. nl end
+      ops[#ops + 1] = { node.bs, node.be, enc }
+      if h_changed then ops[#ops + 1] = { node.hs, node.he, h } end
     end
   end
 
   -- Von hinten nach vorne ersetzen, damit Offsets gueltig bleiben
-  table.sort(jobs, function(a, b) return a.node.bs > b.node.bs end)
+  table.sort(ops, function(a, b) return a[1] > b[1] end)
   local out = msg
-  for _, job in ipairs(jobs) do
-    local node = job.node
-    out = out:sub(1, node.bs - 1) .. job.new_body .. out:sub(node.be + 1)
-    if job.new_header then
-      out = out:sub(1, node.hs - 1) .. job.new_header .. out:sub(node.he + 1)
-    end
+  for _, op in ipairs(ops) do
+    out = out:sub(1, op[1] - 1) .. op[3] .. out:sub(op[2] + 1)
   end
 
-  -- Ergebnis verifizieren: Struktur muss identisch sein
+  -- Ergebnis verifizieren: Struktur muss identisch sein (eigene Logos ausgenommen)
   local vctx = M.walk(M.parse_entity(out, 1, #out, 0, true))
-  if vctx.broken or vctx.forbidden or #vctx.leaves ~= #ctx.leaves then
+  local function strip(list)
+    local r = {}
+    for _, l in ipairs(list) do if l ~= '#mcsig' then r[#r + 1] = l end end
+    return r
+  end
+  local before, after = strip(ctx.leaves), strip(vctx.leaves)
+  if vctx.broken or vctx.forbidden or #after ~= #before
+      or #vctx.leaves - #after ~= #ctx.leaves - #before + #images then
     return nil, 'skip: verification failed'
   end
-  for i, l in ipairs(ctx.leaves) do
-    if vctx.leaves[i] ~= l then return nil, 'skip: verification failed' end
+  for i, l in ipairs(before) do
+    if after[i] ~= l then return nil, 'skip: verification failed' end
   end
   if msg:sub(1, root.he) ~= out:sub(1, root.he) then return nil, 'skip: top-level headers changed' end
 
@@ -1075,6 +1139,9 @@ local function process(task)
     get_templates = make_template_loader(BASE, addr, domain, ttl),
     vars = vars,
     skip_calendar = cfg.skip_calendar,
+    embed = cfg.logo_mode == 'embed',
+    read_asset = function(name) return M.read_file(BASE .. '/assets/' .. name, ttl) end,
+    seed = string.format('%x%04x', os.time(), math.random(0, 65535)),
   })
   -- mailcow loggt rspamd im Modus "silent": infox waere unsichtbar, daher warnx.
   -- Zusaetzlich steht das Ergebnis als Symbol in der rspamd-History (mailcow: /rspamd).

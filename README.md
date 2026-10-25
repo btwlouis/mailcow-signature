@@ -57,6 +57,8 @@ Changes are picked up within 60 seconds, without a restart.
 
 The designer builds email-safe HTML (tables, inline styles, no background colors) for Outlook, Gmail, Apple Mail and others. Logos are uploaded in the UI, stored in `data/web/sig-assets/` and served publicly by mailcow's nginx at `https://<mailcow-host>/sig-assets/…`, so recipients can load them. The UI checks that this URL is reachable.
 
+**Logo mode** (Settings): *Linked* (default, small mails, but classic Outlook for Windows asks before loading external images) or *Embedded* (inline CID attachment, shown immediately everywhere, mails get a paperclip). Embedding is skipped for single-part HTML mails, which keep the link.
+
 Dark mode: mail clients recolor text and backgrounds, but never images. So a dark logo on a transparent background disappears on a dark background. The designer analyzes each logo and offers:
 
 - **White outline** (recommended): adds a thin white contour, works in every client.

@@ -286,6 +286,74 @@ for raw in samples:
         codec_ok &= all(len(l) <= 76 for l in q.split(b"\r\n"))
 check("codec roundtrips vs. Python base64/quopri", codec_ok)
 
+# --------------------------------------------------------------------------
+# Logo eingebettet (CID)
+LOGO = bytes.fromhex("89504e470d0a1a0a") + os.urandom(1500)
+LOGO_URL = "https://mail.example.com/sig-assets/0123456789abcdef.png"
+EMBED_TPL = {k: (('<table><tr><td><img src="%s" width="120" alt="x"></td><td>{{DisplayName}}</td></tr></table>' % LOGO_URL).encode(),
+                 b"{{DisplayName}}") for k in ("new", "reply")}
+
+
+def apply_embed(msg: bytes, assets=None):
+    assets = {b"0123456789abcdef.png": LOGO} if assets is None else assets
+    opts = lua.table_from({
+        b"get_templates": lambda kind: EMBED_TPL[kind.decode()],
+        b"vars": lua.table_from(VARS), b"skip_calendar": True, b"embed": True,
+        b"read_asset": lambda name: assets.get(name), b"seed": b"abc123",
+    })
+    out, info = M.apply(msg, opts)
+    return out, (info.decode() if isinstance(info, bytes) else info)
+
+
+def cid_check(name, out):
+    m = email.message_from_bytes(out, policy=email.policy.default)
+    html_part = next(p for p in m.walk() if p.get_content_type() == "text/html")
+    html = html_part.get_content()
+    cids = [c for c in re.findall(r'src="cid:([^"]+)"', html) if c.startswith("mcsig.")]
+    imgs = {p["Content-ID"].strip("<>"): p.get_content() for p in m.walk() if p.get("Content-ID", "").startswith("<mcsig.")}
+    check(name + ": cid referenced and attached", cids and all(c in imgs for c in cids), (cids, list(imgs)))
+    check(name + ": image bytes identical", all(v == LOGO for v in imgs.values()))
+    check(name + ": no MIME defects", not defects(out), defects(out))
+    return m, imgs
+
+
+import re
+out, info = apply_embed(msg1)
+check("Embed OWA: modified", out is not None, info)
+if out:
+    m, imgs = cid_check("Embed OWA", out)
+    rel = [p for p in m.walk() if p.get_content_type() == "multipart/related"]
+    check("Embed OWA: html wrapped in new multipart/related", len(rel) == 1 and rel[0].get_param("type") == "text/html")
+    check("Embed OWA: plain part untouched structure", parts(out)[1].get("text/plain") is not None)
+    check("Embed OWA: top-level headers unchanged", out.split(b"\r\n\r\n")[0] == msg1.split(b"\r\n\r\n")[0])
+
+shot = base64.encodebytes(bytes.fromhex("89504e470d0a1a0a") + b"screenshot").decode()
+msg_rel = crlf(
+    "From: max@example.com\nSubject: AW: x\nContent-Type: multipart/related; boundary=\"rel1\"; type=\"multipart/alternative\"\n\n"
+    "--rel1\nContent-Type: multipart/alternative; boundary=\"alt1\"\n\n"
+    "--alt1\nContent-Type: text/plain; charset=utf-8\n\nSiehe Bild\n"
+    "--alt1\nContent-Type: text/html; charset=utf-8\n\n<html><body><p>Siehe Bild</p><img src=\"cid:image001.png@01D\"></body></html>\n"
+    "--alt1--\n\n--rel1\nContent-Type: image/png; name=\"image001.png\"\nContent-Transfer-Encoding: base64\nContent-ID: <image001.png@01D>\n\n"
+    + shot + "--rel1--\n")
+out, info = apply_embed(msg_rel)
+check("Embed existing related: modified", out is not None, info)
+if out:
+    m, imgs = cid_check("Embed existing related", out)
+    check("Embed existing related: no extra related, screenshot kept",
+          len([p for p in m.walk() if p.get_content_type() == "multipart/related"]) == 1 and b"image001.png@01D" in out)
+
+out, info = apply_embed(msg4)
+check("Embed single-part html: falls back to link", out is not None and LOGO_URL.encode() in out and b"cid:" not in out, info)
+
+out, info = apply_embed(msg1, assets={})
+check("Embed missing asset: falls back to link",
+      out is not None and LOGO_URL in parts(out)[1]["text/html"] and b"Content-ID" not in out, info)
+
+out, info = apply_embed(crlf(
+    "From: max@example.com\nContent-Type: multipart/signed; protocol=\"application/pkcs7-signature\"; boundary=s\n\n"
+    "--s\nContent-Type: text/html\n\n<p>x</p>\n--s\nContent-Type: application/pkcs7-signature\n\nAAAA\n--s--\n"))
+check("Embed S/MIME untouched", out is None, info)
+
 failed = [n for n, ok in RESULTS if not ok]
 print("\n%d/%d passed" % (len(RESULTS) - len(failed), len(RESULTS)))
 sys.exit(1 if failed else 0)
