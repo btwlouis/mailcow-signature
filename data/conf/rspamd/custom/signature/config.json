@@ -1,6 +1,7 @@
 {
   "enabled": true,
   "dry_run": false,
+  "live_senders": [],
 
   "domains": ["example.com"],
 

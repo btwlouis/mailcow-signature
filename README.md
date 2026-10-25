@@ -63,6 +63,8 @@ With dry run on, the plugin does everything except modify the mail. Each outgoin
   You should see lines like `dry_run, would insert reply signature for max@example.com` or `unchanged (skip: multipart/signed)`.
 - **rspamd history** in the mailcow UI (`https://<mailcow-host>/rspamd` → History): symbol `MAILCOW_SIGNATURE` with the same info.
 
+**Live testers:** while dry run is on, addresses listed under *Live testers* (Settings, `live_senders` in `config.json`) get the real signature, so you can check placement in your own mails before switching everyone over.
+
 No line at all means the mail was filtered before: the sender domain is not in the domain list, the sender is not authenticated, or it is an auto-reply/bounce.
 
 ## Manual installation

@@ -273,7 +273,11 @@ function updateDirty() {
 function updateStatus() {
   const c = S.config, chip = $("#statusChip");
   if (c.enabled === false) { chip.className = "status-chip chip-off"; chip.textContent = "Deaktiviert"; }
-  else if (c.dry_run) { chip.className = "status-chip chip-warn"; chip.textContent = "Testmodus (dry run)"; }
+  else if (c.dry_run) {
+    const n = (c.live_senders || []).length;
+    chip.className = "status-chip chip-warn";
+    chip.textContent = n ? `Testmodus · live für ${n === 1 ? c.live_senders[0] : n + " Absender"}` : "Testmodus (dry run)";
+  }
   else { chip.className = "status-chip chip-ok"; chip.textContent = "Aktiv"; }
 }
 function knownKeys(domain) {
@@ -512,6 +516,9 @@ function renderSettings() {
       <div class="card card-pad"><h3>Verhalten</h3><p class="sub">Grundlegende Schalter.</p>
         ${sw("enabled", "Signaturen aktiv", "Hauptschalter für das Plugin.", true)}
         ${sw("dry_run", "Testmodus (dry run)", "Nichts verändern, nur ins rspamd-Log schreiben, was passieren würde.", false)}
+        <div class="${c.dry_run ? "" : "hidden"}" id="liveBox" style="padding:4px 0 14px 54px">
+          ${list("live_senders", "Live-Tester", "Diese Absender bekommen die Signatur trotz Testmodus <b>wirklich</b> eingefügt, z. B. du selbst. Alle anderen bleiben im Testmodus.")}
+        </div>
         ${sw("skip_calendar", "Kalendereinladungen auslassen", "Einladungen und Zusagen bleiben unverändert (empfohlen).", true)}
         ${sw("require_auth", "Nur angemeldete Absender", "Signatur nur für per SMTP-AUTH/SOGo angemeldete Benutzer bzw. aus vertrauenswürdigen Netzen.", true)}
         ${sw("skip_internal", "Interne Mails auslassen", "Keine Signatur, wenn alle Empfänger in den internen Domains liegen.", false)}
@@ -589,7 +596,11 @@ document.addEventListener("change", e => {
     markDirty("tpl", view.level); return renderMain();
   }
   if (t.id === "sample") { view.sampleUser = t.value; return updatePreview(view.level); }
-  if (t.dataset.cfg) { S.config[t.dataset.cfg] = t.checked; markDirty("config"); return updateStatus(); }
+  if (t.dataset.cfg) {
+    S.config[t.dataset.cfg] = t.checked; markDirty("config");
+    if (t.dataset.cfg === "dry_run") $("#liveBox").classList.toggle("hidden", !t.checked);
+    return updateStatus();
+  }
 });
 
 document.addEventListener("input", e => {
@@ -608,8 +619,9 @@ document.addEventListener("input", e => {
     return markDirty("users");
   }
   if (t.dataset.cfglist) {
-    S.config[t.dataset.cfglist] = t.value.split(/\n/).map(x => x.trim()).filter(Boolean);
-    return markDirty("config");
+    S.config[t.dataset.cfglist] = t.value.split(/\n/).map(x => x.trim().toLowerCase()).filter(Boolean);
+    markDirty("config");
+    return updateStatus();
   }
 });
 

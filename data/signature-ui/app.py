@@ -111,7 +111,7 @@ def delete_templates(level):
 def validate_config(cfg):
     if not isinstance(cfg, dict):
         raise ValueError("config muss ein Objekt sein")
-    for key in ("domains", "trusted_networks", "exclude_senders", "internal_domains"):
+    for key in ("domains", "trusted_networks", "exclude_senders", "internal_domains", "live_senders"):
         if key in cfg and not (isinstance(cfg[key], list) and all(isinstance(x, str) for x in cfg[key])):
             raise ValueError("%s muss eine Liste von Texten sein" % key)
     for key in ("enabled", "dry_run", "require_auth", "skip_internal", "skip_calendar"):
@@ -120,6 +120,12 @@ def validate_config(cfg):
     if "vars" in cfg and not isinstance(cfg["vars"], dict):
         raise ValueError("vars muss ein Objekt sein")
     cfg["domains"] = sorted({d.strip().lower() for d in cfg.get("domains", []) if d.strip()})
+    for key in ("exclude_senders", "live_senders"):
+        if key in cfg:
+            cfg[key] = sorted({a.strip().lower() for a in cfg[key] if a.strip()})
+            bad = [a for a in cfg[key] if not re.match(r"^[^@\s]+@[^@\s]+$", a)]
+            if bad:
+                raise ValueError("Ungueltige Adresse in %s: %s" % (key, ", ".join(bad)))
     return cfg
 
 

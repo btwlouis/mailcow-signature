@@ -27,6 +27,7 @@ local N = 'mailcow_signature'
 M.defaults = {
   enabled = true,
   dry_run = false,
+  live_senders = {},
   domains = {},
   require_auth = true,
   trusted_networks = {},
@@ -1055,14 +1056,17 @@ local function process(task)
     rspamd_logger.warnx(task, '%s: %s unchanged (%s)', N, addr, info)
     return
   end
-  if cfg.dry_run then
+  -- Testmodus: nur live_senders bekommen die Signatur wirklich, alle anderen nur Log
+  local live_tester = cfg.dry_run and list_has(cfg.live_senders, addr)
+  if cfg.dry_run and not live_tester then
     task:insert_result(SYMBOL, 0.0, 'dry_run: would insert ' .. info)
     rspamd_logger.warnx(task, '%s: dry_run, would insert %s signature for %s', N, info, addr)
     return
   end
   task:set_message(out)
-  task:insert_result(SYMBOL, 0.0, 'inserted ' .. info)
-  rspamd_logger.warnx(task, '%s: inserted %s signature for %s', N, info, addr)
+  local how = live_tester and ' (live tester)' or ''
+  task:insert_result(SYMBOL, 0.0, 'inserted ' .. info .. how)
+  rspamd_logger.warnx(task, '%s: inserted %s signature for %s%s', N, info, addr, how)
 end
 
 local id = rspamd_config:register_symbol({
