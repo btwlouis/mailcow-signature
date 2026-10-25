@@ -1000,30 +1000,42 @@ local function process(task)
   local cfg = load_config()
   if not cfg.enabled then return end
 
-  local env = task:get_from('smtp')
-  if not env or not env[1] or not env[1].addr or env[1].addr == '' then return end -- Bounces
-
   local from = task:get_from('mime')
   if not from or not from[1] or not from[1].addr or from[1].addr == '' then return end
   local addr = from[1].addr:lower()
   local domain = (from[1].domain or addr:match('@(.+)$') or ''):lower()
 
+  -- Gruende fuers Ueberspringen nur fuer eigene Domains loggen (sonst waere jede
+  -- eingehende Mail im Log)
+  local own = list_has(cfg.domains, domain)
+  local function skip(reason)
+    if own then
+      task:insert_result(SYMBOL, 0.0, 'skip: ' .. reason)
+      rspamd_logger.warnx(task, '%s: %s unchanged (skip: %s)', N, addr, reason)
+    end
+  end
+
+  local env = task:get_from('smtp')
+  if not env or not env[1] or not env[1].addr or env[1].addr == '' then return skip('bounce (empty envelope sender)') end
+
   -- Nur ausgehende Mails: authentifiziert (SMTP-AUTH/SOGo) oder aus trusted_networks
   local user = task:get_user()
   local trusted = false
   if not user then
-    if cfg.require_auth and not in_networks(task:get_from_ip(), cfg.trusted_networks) then return end
+    if cfg.require_auth and not in_networks(task:get_from_ip(), cfg.trusted_networks) then
+      return skip('sender not authenticated')
+    end
     trusted = true
   end
 
   local all_domains = list_has(cfg.domains, '*')
-  if not list_has(cfg.domains, domain) and (not all_domains or trusted) then return end
-  if list_has(cfg.exclude_senders, addr) then return end
+  if not own and (not all_domains or trusted) then return end
+  if list_has(cfg.exclude_senders, addr) then return skip('excluded sender') end
 
   local auto = task:get_header('Auto-Submitted')
-  if auto and not auto:lower():find('^%s*no') then return end
+  if auto and not auto:lower():find('^%s*no') then return skip('Auto-Submitted: ' .. auto) end
   local prec = (task:get_header('Precedence') or ''):lower()
-  if prec:find('bulk') or prec:find('list') or prec:find('junk') then return end
+  if prec:find('bulk') or prec:find('list') or prec:find('junk') then return skip('Precedence: ' .. prec) end
 
   if cfg.skip_internal then
     local rcpts = task:get_recipients('smtp') or {}
@@ -1031,14 +1043,14 @@ local function process(task)
     for _, r in ipairs(rcpts) do
       if not list_has(cfg.internal_domains, (r.domain or ''):lower()) then internal = false break end
     end
-    if internal then return end
+    if internal then return skip('internal recipients only') end
   end
 
   local content = task:get_content()
-  if not content then return end
+  if not content then return skip('no message content') end
   local msg = tostring(content)
-  if #msg > (tonumber(cfg.max_size) or M.defaults.max_size) then return end
-  if msg:find('-----BEGIN PGP', 1, true) then return end
+  if #msg > (tonumber(cfg.max_size) or M.defaults.max_size) then return skip('message too large') end
+  if msg:find('-----BEGIN PGP', 1, true) then return skip('inline PGP') end
 
   local ttl = tonumber(cfg.cache_ttl) or 60
   local users = read_json(BASE .. '/users.json', ttl, parse_json)
