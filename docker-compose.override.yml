@@ -15,7 +15,7 @@ services:
       - ./data/signature-ui:/app:ro,z
       - ./data/conf/rspamd/custom/signature:/data:z
     ports:
-      # nur lokal erreichbar – Zugriff per SSH-Tunnel (siehe README)
-      - "127.0.0.1:8090:8090"
+      # SIGNATURE_UI_BIND in mailcow.conf, e.g. a VPN/private IP; default: localhost only
+      - "${SIGNATURE_UI_BIND:-127.0.0.1}:8090:8090"
     networks:
       mailcow-network:

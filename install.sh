@@ -7,6 +7,8 @@
 #   --dir <path>     mailcow directory (MAILCOW_DIR), auto-detected by default
 #   --ref <ref>      branch/tag to install (MCS_REF, default: main)
 #   --no-ui          install only the rspamd plugin, no web UI
+#   --listen <ip>    address the web UI listens on (SIGNATURE_UI_BIND in mailcow.conf),
+#                    e.g. a private/VPN IP like 10.1.0.4; default 127.0.0.1
 #   --uninstall      remove plugin and web UI (signature config is kept)
 #   --purge          with --uninstall: also delete templates/config/users
 #
@@ -37,6 +39,7 @@ main() {
   local mode=install with_ui=1 purge=0
   MAILCOW_DIR="${MAILCOW_DIR:-}"
   MCS_REF="${MCS_REF:-main}"
+  MCS_LISTEN="${MCS_LISTEN:-}"
   while [ $# -gt 0 ]; do
     case "$1" in
       --dir) MAILCOW_DIR="$2"; shift ;;
@@ -44,12 +47,16 @@ main() {
       --no-ui) with_ui=0 ;;
       --uninstall) mode=uninstall ;;
       --purge) purge=1 ;;
-      -h|--help) sed -n '2,15p' "$0" 2>/dev/null || true; exit 0 ;;
+      --listen) MCS_LISTEN="$2"; shift ;;
+      -h|--help) sed -n '2,17p' "$0" 2>/dev/null || true; exit 0 ;;
       *) die "Unknown option: $1" ;;
     esac
     shift
   done
 
+  if [ -n "$MCS_LISTEN" ] && ! [[ "$MCS_LISTEN" =~ ^[0-9a-fA-F.:]+$ ]]; then
+    die "--listen expects an IP address, got: $MCS_LISTEN"
+  fi
   [ "$(id -u)" -eq 0 ] || die "Please run as root (sudo)."
   command -v docker >/dev/null || die "docker not found."
   if docker compose version >/dev/null 2>&1; then COMPOSE=(docker compose)
@@ -175,6 +182,11 @@ install_ui() {
     NEW_PASSWORD=1
   fi
   grep -q '^SIGNATURE_UI_API_KEY=' mailcow.conf || echo "SIGNATURE_UI_API_KEY=" >> mailcow.conf
+  if [ -n "$MCS_LISTEN" ]; then
+    sed -i '/^SIGNATURE_UI_BIND=/d' mailcow.conf
+    echo "SIGNATURE_UI_BIND=$MCS_LISTEN" >> mailcow.conf
+  fi
+  grep -q '^SIGNATURE_UI_BIND=' mailcow.conf || echo "SIGNATURE_UI_BIND=127.0.0.1" >> mailcow.conf
 
   local block indent
   block_for() {
@@ -194,7 +206,7 @@ ${i}${i}volumes:
 ${i}${i}${i}- ./data/signature-ui:/app:ro,z
 ${i}${i}${i}- ./data/conf/rspamd/custom/signature:/data:z
 ${i}${i}ports:
-${i}${i}${i}- "127.0.0.1:8090:8090"
+${i}${i}${i}- "\${SIGNATURE_UI_BIND:-127.0.0.1}:8090:8090"
 ${i}${i}networks:
 ${i}${i}${i}mailcow-network:
 ${i}${MARK_END}
@@ -253,9 +265,18 @@ summary() {
   echo
   printf '%s mailcow-signature installed%s\n\n' "$c_b" "$c_0"
   if [ "$1" = 1 ]; then
-    echo "  Web UI:    only on 127.0.0.1:8090 of this server. From your computer:"
-    echo "               ssh -L 8090:127.0.0.1:8090 root@$(conf_get MAILCOW_HOSTNAME)"
-    echo "             then open http://localhost:8090"
+    local bind
+    bind="$(conf_get SIGNATURE_UI_BIND)"; bind="${bind:-127.0.0.1}"
+    if [ "$bind" = 127.0.0.1 ]; then
+      echo "  Web UI:    only on 127.0.0.1:8090 of this server. From your computer:"
+      echo "               ssh -L 8090:127.0.0.1:8090 root@$(conf_get MAILCOW_HOSTNAME)"
+      echo "             then open http://localhost:8090"
+      echo "             (to reach it via VPN/private network: re-run with --listen <private-ip>)"
+    else
+      [[ "$bind" == *:* ]] && bind="[$bind]"
+      echo "  Web UI:    http://$bind:8090"
+      [ "$bind" = 0.0.0.0 ] && echo "  ${c_warn}Listening on all interfaces${c_0}: restrict access with a firewall."
+    fi
     if [ "${NEW_PASSWORD:-0}" = 1 ]; then
       echo "  Password:  ${c_b}$UI_PASSWORD${c_0}   ${c_dim}(stored as SIGNATURE_UI_PASSWORD in mailcow.conf)${c_0}"
     else
@@ -288,7 +309,7 @@ uninstall() {
   rm -f "$RSPAMD/custom/mailcow_signature.lua"
   rm -rf data/signature-ui
   if [ "$purge" = 1 ]; then rm -rf "$SIGDIR"; info "Signature configuration deleted"; fi
-  sed -i -e '/^# mailcow-signature web UI$/d' -e '/^SIGNATURE_UI_PASSWORD=/d' -e '/^SIGNATURE_UI_API_KEY=/d' mailcow.conf
+  sed -i -e '/^# mailcow-signature web UI$/d' -e '/^SIGNATURE_UI_PASSWORD=/d' -e '/^SIGNATURE_UI_API_KEY=/d'     -e '/^SIGNATURE_UI_BIND=/d' mailcow.conf
   "${COMPOSE[@]}" restart rspamd-mailcow >/dev/null
   info "mailcow-signature removed (backup: $BACKUP)"
   [ "$purge" = 1 ] || echo "    Templates and config kept in $SIGDIR (use --uninstall --purge to delete)."

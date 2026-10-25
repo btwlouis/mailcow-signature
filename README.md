@@ -34,10 +34,11 @@ The installer:
 
 Then:
 
-1. Open the web UI through an SSH tunnel, browse to http://localhost:8090 and log in with the printed password:
+1. Open the web UI and log in with the printed password. By default it only listens on `127.0.0.1:8090`, so use an SSH tunnel and browse to http://localhost:8090:
    ```bash
    ssh -L 8090:127.0.0.1:8090 root@your-mailcow-host
    ```
+   To reach it over a VPN or private network instead (e.g. Hetzner Cloud network), run the installer with `--listen <private-ip>` and open `http://<private-ip>:8090`.
 2. Edit the signatures, test, then turn off **dry run** (Settings).
 3. Clear mailcow's **domain wide footer** for these domains, and turn off client-side signatures, otherwise you get two.
 
@@ -46,6 +47,7 @@ Changes are picked up within 60 seconds, without a restart.
 | Task | Command |
 |---|---|
 | Update (keeps your config) | run the installer again |
+| Web UI on a VPN/private IP | `curl -fsSL https://raw.githubusercontent.com/btwlouis/mailcow-signature/main/install.sh \| sudo bash -s -- --listen 10.1.0.4` |
 | Plugin only, no web UI | `curl -fsSL https://raw.githubusercontent.com/btwlouis/mailcow-signature/main/install.sh \| sudo bash -s -- --no-ui` |
 | Uninstall (keeps templates/config) | `curl -fsSL https://raw.githubusercontent.com/btwlouis/mailcow-signature/main/install.sh \| sudo bash -s -- --uninstall` |
 | Uninstall everything | `curl -fsSL https://raw.githubusercontent.com/btwlouis/mailcow-signature/main/install.sh \| sudo bash -s -- --uninstall --purge` |
@@ -67,6 +69,7 @@ cp /opt/mailcow-signature/data/conf/rspamd/local.d/rspamd.lua data/conf/rspamd/l
 cp -r /opt/mailcow-signature/data/signature-ui data/
 echo "SIGNATURE_UI_PASSWORD=change-me-to-something-long" >> mailcow.conf
 echo "SIGNATURE_UI_API_KEY=" >> mailcow.conf                    # optional, read-only mailcow API key
+echo "SIGNATURE_UI_BIND=127.0.0.1" >> mailcow.conf               # or a VPN/private IP
 cp /opt/mailcow-signature/docker-compose.override.yml .          # or merge the service into your existing one
 
 # 3. Start
