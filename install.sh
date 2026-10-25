@@ -212,7 +212,7 @@ install_ui() {
   fi
   grep -q '^SIGNATURE_UI_BIND=' mailcow.conf || echo "SIGNATURE_UI_BIND=127.0.0.1" >> mailcow.conf
 
-  local block indent
+  local indent
   block_for() {
     local i="$1"
     cat <<EOF

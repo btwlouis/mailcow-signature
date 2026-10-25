@@ -1,5 +1,7 @@
 # mailcow-signature
 
+[![CI](https://github.com/btwlouis/mailcow-signature/actions/workflows/ci.yml/badge.svg)](https://github.com/btwlouis/mailcow-signature/actions/workflows/ci.yml)
+
 Server-side email signatures for [mailcow](https://mailcow.email), placed the way Exclaimer/CodeTwo do it for Microsoft 365: **directly below the newest message, above the quoted history**. mailcow's built-in *domain wide footer* always appends to the very end of the mail, after the quoted thread.
 
 - **rspamd prefilter**, the same hook mailcow uses for its footer. It runs before DKIM/ARC signing, so DKIM stays valid.
@@ -133,9 +135,13 @@ Then continue with the steps after the quick install.
 ## Tests
 
 ```bash
-pip install lupa
-python tests/test_signature.py
+pip install lupa pyyaml
+python tests/test_signature.py      # plugin unit tests (LuaJIT)
+bash tests/installer_test.sh        # installer against a fake mailcow
+bash tests/rspamd_integration.sh    # plugin inside a real rspamd container (Docker)
 ```
+
+All three run in GitHub Actions on every push, plus shellcheck, ruff and syntax checks.
 
 ## License
 

@@ -8,6 +8,7 @@ import email
 import email.policy
 import os
 import quopri
+import re
 import sys
 
 import lupa.luajit21 as lupa
@@ -111,7 +112,7 @@ if out:
     check("OWA reply: no MIME defects", not defects(out), defects(out))
     check("OWA reply: headers unchanged", out.split(b"\r\n\r\n")[0] == msg1.split(b"\r\n\r\n")[0])
     check("OWA reply: CRLF only", b"\n" not in out.replace(b"\r\n", b""))
-    check("OWA reply: QP lines <= 76", all(len(l) <= 76 for l in out.split(b"\r\n")[8:]))
+    check("OWA reply: QP lines <= 76", all(len(line) <= 76 for line in out.split(b"\r\n")[8:]))
 
 # --------------------------------------------------------------------------
 outlook_desktop_html = (
@@ -277,13 +278,13 @@ for raw in samples:
     enc = M.b64_encode(raw, b"\r\n")
     codec_ok &= M.b64_decode(enc) == raw
     codec_ok &= base64.b64decode(enc) == raw
-    codec_ok &= all(len(l) <= 76 for l in enc.split(b"\r\n"))
+    codec_ok &= all(len(line) <= 76 for line in enc.split(b"\r\n"))
     if b"\r" not in raw.replace(b"\r\n", b""):
         q = M.qp_encode(raw, b"\r\n")
         expect = raw.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
         codec_ok &= quopri.decodestring(q).replace(b"\r\n", b"\n") == expect.replace(b"\r\n", b"\n")
         codec_ok &= M.qp_decode(q) == expect
-        codec_ok &= all(len(l) <= 76 for l in q.split(b"\r\n"))
+        codec_ok &= all(len(line) <= 76 for line in q.split(b"\r\n"))
 check("codec roundtrips vs. Python base64/quopri", codec_ok)
 
 # --------------------------------------------------------------------------
@@ -317,7 +318,6 @@ def cid_check(name, out):
     return m, imgs
 
 
-import re
 out, info = apply_embed(msg1)
 check("Embed OWA: modified", out is not None, info)
 if out:
