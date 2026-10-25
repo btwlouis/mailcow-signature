@@ -998,11 +998,18 @@ end
 
 local function process(task)
   local cfg = load_config()
+  local from = task:get_from('mime')
+  local user = task:get_user()
+  local mime_from = from and from[1] and from[1].addr or ''
+  if user then
+    -- ausgehende Mails sind selten genug, um jeden Aufruf zu protokollieren
+    rspamd_logger.warnx(task, '%s: checking mail from <%s> (user %s, enabled=%s, domains=%s)',
+      N, mime_from, user, cfg.enabled, table.concat(type(cfg.domains) == 'table' and cfg.domains or {}, ','))
+  end
   if not cfg.enabled then return end
 
-  local from = task:get_from('mime')
-  if not from or not from[1] or not from[1].addr or from[1].addr == '' then return end
-  local addr = from[1].addr:lower()
+  if mime_from == '' then return end
+  local addr = mime_from:lower()
   local domain = (from[1].domain or addr:match('@(.+)$') or ''):lower()
 
   -- Gruende fuers Ueberspringen nur fuer eigene Domains loggen (sonst waere jede
@@ -1019,7 +1026,6 @@ local function process(task)
   if not env or not env[1] or not env[1].addr or env[1].addr == '' then return skip('bounce (empty envelope sender)') end
 
   -- Nur ausgehende Mails: authentifiziert (SMTP-AUTH/SOGo) oder aus trusted_networks
-  local user = task:get_user()
   local trusted = false
   if not user then
     if cfg.require_auth and not in_networks(task:get_from_ip(), cfg.trusted_networks) then

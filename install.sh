@@ -248,6 +248,7 @@ restart_services() {
   local since
   since="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   "${COMPOSE[@]}" restart rspamd-mailcow >/dev/null
+  info "Waiting for rspamd to load the plugin (up to 60 seconds)"
   local i
   for i in $(seq 1 30); do
     if "${COMPOSE[@]}" logs --since "$since" rspamd-mailcow 2>/dev/null | grep -q "mailcow_signature: loaded"; then
