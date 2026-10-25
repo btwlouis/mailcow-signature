@@ -115,6 +115,8 @@ fetch_source() {
 backup() {
   BACKUP="$BACKUP_ROOT/$(date +%Y%m%d-%H%M%S)"
   mkdir -p "$BACKUP"
+  # alte Installationen: mailcow hat custom/signature unlesbar gemacht (chmod 644 auf Ordner)
+  if [ -d "$RSPAMD/custom/signature" ]; then find "$RSPAMD/custom/signature" -type d -exec chmod 0755 {} +; fi
   tar -czf "$BACKUP/rspamd-conf.tar.gz" -C "$MAILCOW_DIR/data/conf" rspamd
   cp -p mailcow.conf "$BACKUP/"
   [ -f docker-compose.override.yml ] && cp -p docker-compose.override.yml "$BACKUP/"

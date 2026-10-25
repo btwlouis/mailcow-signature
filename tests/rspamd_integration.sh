@@ -74,7 +74,7 @@ mail() { # $1 = from, $2 = body
 # --- Lauf 1: Link-Modus, live
 write_config link false
 start
-if docker logs "$NAME" 2>&1 | grep -q "mailcow_signature: loaded"; then pass "plugin loaded"; else fail "plugin loaded"; docker logs "$NAME" 2>&1 | grep -i -E "error|lua" | tail -20; fi
+if docker logs "$NAME" 2>&1 | grep -c "mailcow_signature: loaded" >/dev/null; then pass "plugin loaded"; else fail "plugin loaded"; docker logs "$NAME" 2>&1 | grep -i -E "error|lua" | tail -20; fi
 
 mail "Max <max@example.com>" "Hallo" > "$WORK/m1.eml"
 OUT="$(scan "$WORK/m1.eml" -u max@example.com -F max@example.com -r x@external.org)"
