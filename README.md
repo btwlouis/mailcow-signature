@@ -16,7 +16,41 @@ Only the bytes of the first `text/html` and `text/plain` part are replaced. Head
 
 Every change is verified before the mail goes out: the plugin re-decodes and re-parses the result. On any error the mail is sent unchanged.
 
-## Installation
+## Quick install
+
+Run this on the mailcow host as root:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/btwlouis/mailcow-signature/main/install.sh | sudo bash
+```
+
+The installer:
+
+- finds your mailcow directory (or pass `--dir /path`) and backs up the rspamd config to `/var/backups/mailcow-signature/`
+- installs the rspamd plugin and default templates
+- creates `config.json` with all active mailcow domains, with **dry run enabled**
+- adds the web UI service to `docker-compose.override.yml` (merging into an existing file) and generates a UI password in `mailcow.conf`
+- starts the UI, restarts rspamd and checks that the plugin loaded
+
+Then:
+
+1. Open the web UI through an SSH tunnel, browse to http://localhost:8090 and log in with the printed password:
+   ```bash
+   ssh -L 8090:127.0.0.1:8090 root@your-mailcow-host
+   ```
+2. Edit the signatures, test, then turn off **dry run** (Settings).
+3. Clear mailcow's **domain wide footer** for these domains, and turn off client-side signatures, otherwise you get two.
+
+Changes are picked up within 60 seconds, without a restart.
+
+| Task | Command |
+|---|---|
+| Update (keeps your config) | run the installer again |
+| Plugin only, no web UI | `curl -fsSL https://raw.githubusercontent.com/btwlouis/mailcow-signature/main/install.sh \| sudo bash -s -- --no-ui` |
+| Uninstall (keeps templates/config) | `curl -fsSL https://raw.githubusercontent.com/btwlouis/mailcow-signature/main/install.sh \| sudo bash -s -- --uninstall` |
+| Uninstall everything | `curl -fsSL https://raw.githubusercontent.com/btwlouis/mailcow-signature/main/install.sh \| sudo bash -s -- --uninstall --purge` |
+
+## Manual installation
 
 Run these on the mailcow host (`/opt/mailcow-dockerized`).
 
@@ -27,6 +61,7 @@ cd /opt/mailcow-dockerized
 # 1. rspamd plugin + templates
 cp -r /opt/mailcow-signature/data/conf/rspamd/custom/* data/conf/rspamd/custom/
 cp /opt/mailcow-signature/data/conf/rspamd/local.d/rspamd.lua data/conf/rspamd/local.d/   # must not exist yet
+# edit data/conf/rspamd/custom/signature/config.json: set "domains" and "dry_run": true
 
 # 2. Web UI
 cp -r /opt/mailcow-signature/data/signature-ui data/
@@ -40,18 +75,9 @@ docker compose restart rspamd-mailcow
 docker compose logs rspamd-mailcow | grep mailcow_signature     # expect "mailcow_signature: loaded"
 ```
 
-Then:
+Then continue with the steps after the quick install.
 
-1. Open the UI through an SSH tunnel and browse to http://localhost:8090:
-   ```bash
-   ssh -L 8090:127.0.0.1:8090 root@your-mailcow-host
-   ```
-2. In the UI, add your domains and edit the templates. Start with **dry run** enabled (Settings), check the rspamd log, then disable it.
-3. Clear mailcow's **domain wide footer** for these domains, and turn off client-side signatures, otherwise you get two.
-
-Changes are picked up within 60 seconds, without a restart.
-
-**Uninstall:** `rm data/conf/rspamd/local.d/rspamd.lua && docker compose restart rspamd-mailcow`
+**Manual uninstall:** `rm data/conf/rspamd/local.d/rspamd.lua && docker compose restart rspamd-mailcow`, then remove the `signature-ui-mailcow` service from `docker-compose.override.yml`.
 
 ## Files
 
@@ -61,6 +87,7 @@ Changes are picked up within 60 seconds, without a restart.
 | `data/conf/rspamd/local.d/rspamd.lua` | loader (rspamd loads it automatically) |
 | `data/conf/rspamd/custom/signature/` | `config.json`, `users.json`, `templates/<default\|domain\|address>/{new,reply}.{html,txt}` |
 | `data/signature-ui/` | web UI (Python stdlib only) |
+| `install.sh` | one-shot installer / updater / uninstaller |
 | `tools/sync_users.py` | sync display names from the mailcow API (CLI alternative to the UI button) |
 
 ## Limitations
