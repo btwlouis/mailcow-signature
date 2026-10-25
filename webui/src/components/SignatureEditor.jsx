@@ -1,74 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "../App.jsx";
-import { DEFAULT_DESIGN, FIELD_LABELS, FONTS, applyDesign, contrast, getDesign } from "../lib/design.js";
+import { FIELD_LABELS, FONTS, LAYOUTS, contrast, normalizeDesign } from "../lib/design.js";
 import { analyzeCanvas, fileToAsset, imageToCanvas, loadImage, transformAsset } from "../lib/logo.js";
-import { hasOwn, htmlToText, isDomain, knownKeys } from "../lib/template.js";
 import Preview, { toLocal } from "./Preview.jsx";
 import { Card, Icon, Row, Seg } from "./ui.jsx";
 
-export default function SignatureTab({ level }) {
-  const { S, mutate } = useStore();
-  const [mode, setMode] = useState("design");
-  const [kind, setKind] = useState("new");
-
-  if (!hasOwn(S, level)) {
-    const createOwn = () => mutate((n) => {
-      n.templates[level] = { ...(n.templates.default || { "new.html": "", "new.txt": null, "reply.html": null, "reply.txt": null }) };
-    }, { tpl: level });
-    return (
-      <div className="grid gap-4 xl:grid-cols-2 items-start">
-        <Card title="Standard-Signatur aktiv">
-          <button className="btn btn-primary" onClick={createOwn}><Icon name="plus" /> Eigene Signatur anlegen</button>
-        </Card>
-        <Preview level={level} />
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <div className="flex items-center gap-2 mb-3">
-        <Seg value={mode} onChange={setMode} size="" options={[["design", "Designer"], ["code", "HTML-Code"]]} />
-        <div className="flex-1" />
-        {level !== "default" && (
-          <button className="btn btn-sm btn-default" onClick={() => {
-            if (confirm("Eigene Signatur löschen? Danach gilt wieder die übergeordnete Signatur.")) mutate((n) => { delete n.templates[level]; }, { del: level });
-          }}><Icon name="trash" /> Eigene Signatur löschen</button>
-        )}
-      </div>
-      <div className="grid gap-4 xl:grid-cols-2 items-start">
-        {mode === "design" ? <Designer level={level} /> : <CodeEditor level={level} kind={kind} setKind={setKind} />}
-        <div className="xl:sticky xl:top-[68px]"><Preview level={level} initialKind={mode === "code" ? kind : "new"} /></div>
-      </div>
-    </div>
-  );
-}
-
-// ------------------------------------------------------------------ Designer
-function Designer({ level }) {
-  const { S, mutate, notify } = useStore();
-  const d = getDesign(S.templates[level]);
+// Bearbeitet eine Signatur aus der Bibliothek; Domains/Personen verweisen per config.signatures darauf
+export default function SignatureEditor({ id }) {
+  const { S, mutate, notify, setNav } = useStore();
+  const entry = S.library[id];
   const logoFile = useRef(), darkFile = useRef();
   const [showLib, setShowLib] = useState(false);
   const [busy, setBusy] = useState(false);
-
-  const update = (fn) => mutate((n) => {
-    const dd = getDesign(n.templates[level]) || structuredClone(DEFAULT_DESIGN);
-    fn(dd);
-    applyDesign(n.templates[level], dd);
-  }, { tpl: level });
+  if (!entry) return <div className="card card-body muted">Signatur nicht gefunden.</div>;
+  const d = normalizeDesign(entry.design);
+  const update = (fn) => mutate((n) => { const dd = normalizeDesign(n.library[id].design); fn(dd); n.library[id].design = dd; }, { library: true });
   const addAsset = (a) => mutate((n) => { n.assets = [a, ...n.assets.filter((x) => x.name !== a.name)]; });
-
-  if (!d) {
-    return (
-      <Card title="Designer">
-        <button className="btn btn-primary" onClick={() => {
-          if ((S.templates[level]["new.html"] || "").trim() && !confirm("Der Designer ersetzt die aktuelle HTML-Vorlage. Fortfahren?")) return;
-          update(() => {});
-        }}>Designer starten</button>
-      </Card>
-    );
-  }
+  const usedBy = Object.entries(S.config.signatures || {}).filter(([, v]) => v === id).map(([l]) => (l === "default" ? "Standard" : l));
 
   const upload = async (file, dark) => {
     if (!file) return;
@@ -99,6 +47,18 @@ function Designer({ level }) {
 
   const cA = contrast(d.accent, "#ffffff"), cAd = contrast(d.accent, "#1f1f1f");
 
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <button className="btn btn-sm btn-default" onClick={() => setNav({ page: "signatures" })}>← Signaturen</button>
+        <input className="form-control w-72 font-semibold" value={entry.name}
+          onChange={(e) => mutate((n) => { n.library[id].name = e.target.value; }, { library: true })} />
+        <div className="flex flex-wrap gap-1">
+          {usedBy.length ? usedBy.map((u) => <span key={u} className="badge bg-mc-info text-white">{u}</span>)
+            : <span className="text-[12px] muted">nicht zugeordnet – unter „Domains“ auswählen</span>}
+        </div>
+      </div>
+      <div className="grid gap-4 xl:grid-cols-2 items-start">
   return (
     <div className="space-y-4">
       <Card title="Logo" actions={busy && <span className="font-normal muted text-[12px]">verarbeite …</span>}>
@@ -158,11 +118,17 @@ function Designer({ level }) {
         <input ref={darkFile} type="file" hidden accept="image/png,image/jpeg,image/gif,image/svg+xml" onChange={(e) => { upload(e.target.files[0], true); e.target.value = ""; }} />
       </Card>
 
-      <Card title="Aufbau & Farben">
-        <Row label="Anordnung"><Seg value={d.layout} onChange={(v) => update((dd) => { dd.layout = v; })} options={[["side", "Logo links"], ["stacked", "Logo oben"]]} /></Row>
-        <Row label="Trennlinie">
-          <label className="flex items-center gap-2"><input type="checkbox" className="accent-mc-primary" checked={d.divider} onChange={(e) => update((dd) => { dd.divider = e.target.checked; })} /> anzeigen</label>
+      <Card title="Layout & Farben">
+        <Row label="Layout">
+          <select className="form-control" value={d.layout} onChange={(e) => update((dd) => { dd.layout = e.target.value; })}>
+            {LAYOUTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
         </Row>
+        {(d.layout === "classic" || d.layout === "stacked") && (
+          <Row label="Trennlinie">
+            <label className="flex items-center gap-2"><input type="checkbox" className="accent-mc-primary" checked={d.divider} onChange={(e) => update((dd) => { dd.divider = e.target.checked; })} /> anzeigen</label>
+          </Row>
+        )}
         <Row label="Schrift">
           <div className="flex gap-2">
             <select className="form-control" value={d.font} onChange={(e) => update((dd) => { dd.font = e.target.value; })}>
@@ -199,6 +165,10 @@ function Designer({ level }) {
           <Seg value={d.reply} onChange={(v) => update((dd) => { dd.reply = v; })} options={[["compact", "Kurz"], ["full", "Wie neu"], ["none", "Keine"]]} />
         </Row>
       </Card>
+    </div>
+  );
+        <div className="xl:sticky xl:top-[68px]"><Preview design={d} sigId={id} /></div>
+      </div>
     </div>
   );
 }
@@ -258,73 +228,3 @@ function LogoChecks({ S, d }) {
     </div>
   );
 }
-
-// ------------------------------------------------------------------ HTML-Code
-function CodeEditor({ level, kind, setKind }) {
-  const { S, mutate, notify } = useStore();
-  const [fmt, setFmt] = useState("html");
-  const ta = useRef();
-  const t = S.templates[level];
-  const replyMode = t["reply.html"] == null && t["reply.txt"] == null ? "same"
-    : (t["reply.html"] || "").trim() === "" && (t["reply.txt"] || "").trim() === "" ? "none" : "own";
-  const file = `${kind}.${fmt === "html" ? "html" : "txt"}`;
-  const showEditor = kind === "new" || replyMode === "own";
-  const auto = fmt === "text" && t[file] == null;
-  const keys = knownKeys(S, isDomain(level) ? level : level.includes("@") ? level.split("@")[1] : "");
-
-  const setFile = (f, v) => mutate((n) => {
-    if (n.templates[level]["design.json"]) {
-      n.templates[level]["design.json"] = null;
-      notify("Designer für diese Vorlage aus – HTML wird manuell gepflegt");
-    }
-    n.templates[level][f] = v;
-  }, { tpl: level });
-  const setReply = (m) => mutate((n) => {
-    const tp = n.templates[level];
-    if (m === "same") { tp["reply.html"] = null; tp["reply.txt"] = null; }
-    if (m === "none") { tp["reply.html"] = ""; tp["reply.txt"] = ""; }
-    if (m === "own") { tp["reply.html"] = tp["new.html"] || ""; tp["reply.txt"] = tp["new.txt"]; }
-  }, { tpl: level });
-  const insert = (k) => {
-    const el = ta.current;
-    if (!el || el.disabled) return;
-    const s = el.selectionStart, e = el.selectionEnd, sel = el.value.slice(s, e);
-    const ins = sel ? `{{#${k}}}${sel}{{/${k}}}` : `{{${k}}}`;
-    setFile(file, el.value.slice(0, s) + ins + el.value.slice(e));
-    requestAnimationFrame(() => { el.focus(); el.selectionStart = el.selectionEnd = s + ins.length; });
-  };
-
-  return (
-    <div className="card">
-      <div className="card-header flex-wrap">
-        <Seg value={kind} onChange={setKind} options={[["new", "Neue Mail"], ["reply", "Antwort"]]} />
-        <div className="ml-auto font-normal">{showEditor && <Seg value={fmt} onChange={setFmt} options={[["html", "HTML"], ["text", "Text"]]} />}</div>
-      </div>
-      {kind === "reply" && (
-        <div className="px-4 py-2.5 border-b border-mc-border dark:border-mc-d-border">
-          <Seg value={replyMode} onChange={setReply} options={[["own", "Eigene"], ["same", "Wie neue Mail"], ["none", "Keine"]]} />
-        </div>
-      )}
-      {showEditor ? (
-        <>
-          <div className="flex flex-wrap gap-1.5 px-4 py-2.5 border-b border-mc-border bg-mc-alt dark:bg-mc-d-alt dark:border-mc-d-border">
-            {keys.map((k) => <button key={k} type="button" className="chip" onClick={() => insert(k)}>{`{{${k}}}`}</button>)}
-          </div>
-          {fmt === "text" && (
-            <label className="flex items-center gap-2 px-4 py-2 border-b border-mc-border dark:border-mc-d-border text-[13px]">
-              <input type="checkbox" className="accent-mc-primary" checked={auto}
-                onChange={(e) => setFile(file, e.target.checked ? null : htmlToText(t[kind + ".html"] || ""))} />
-              automatisch aus HTML
-            </label>
-          )}
-          <textarea ref={ta} spellCheck={false} disabled={auto}
-            className="block w-full min-h-[460px] p-3 font-mono text-[12.5px] leading-relaxed bg-transparent outline-none resize-y rounded-b"
-            value={auto ? htmlToText(t[kind + ".html"] || "") : t[file] || ""} onChange={(e) => setFile(file, e.target.value)} />
-        </>
-      ) : (
-        <div className="card-body muted">{replyMode === "same" ? "Antworten bekommen die Signatur der neuen Mail." : "Antworten bekommen keine Signatur."}</div>
-      )}
-    </div>
-  );
-}
-

@@ -1,21 +1,23 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api, AuthError } from "./lib/api.js";
-import { domains, hasOwn } from "./lib/template.js";
+import { effectiveTemplates, migrate, pendingSync } from "./lib/sync.js";
 import { Icon, Toast } from "./components/ui.jsx";
 import Login from "./components/Login.jsx";
-import LevelPage from "./components/LevelPage.jsx";
+import DomainPage from "./components/DomainPage.jsx";
+import SignaturesPage from "./components/SignaturesPage.jsx";
+import SignatureEditor from "./components/SignatureEditor.jsx";
 import Settings from "./components/Settings.jsx";
 
 const Store = createContext(null);
 export const useStore = () => useContext(Store);
 
-const CLEAN = { config: false, users: false, tpl: [], del: [] };
+const CLEAN = { config: false, users: false, library: false };
 
 export default function App() {
   const [auth, setAuth] = useState(null);
   const [S, setS] = useState(null);
   const [dirty, setDirty] = useState(CLEAN);
-  const [nav, setNav] = useState({ page: "level", level: "default", tab: "sig" });
+  const [nav, setNav] = useState({ page: "signatures" });
   const [toast, setToast] = useState(null);
   const [saving, setSaving] = useState(false);
   const toastTimer = useRef();
@@ -29,8 +31,12 @@ export default function App() {
   const load = useCallback(async () => {
     try {
       const s = await api("GET", "/api/state");
-      s.config ||= {}; s.users ||= {}; s.templates ||= {}; s.assets ||= [];
-      setS(s); setDirty(CLEAN); setAuth(true);
+      s.config ||= {}; s.users ||= {}; s.templates ||= {}; s.assets ||= []; s.library ||= {};
+      s.config.signatures ||= {};
+      const migrated = migrate(s);
+      setS(s);
+      setDirty(migrated ? { ...CLEAN, config: true, library: true } : CLEAN);
+      setAuth(true);
     } catch (e) {
       if (e instanceof AuthError) setAuth(false); else notify(e.message, true);
     }
@@ -40,33 +46,32 @@ export default function App() {
     fetch("/api/session").then((r) => r.json()).then((s) => (s.authenticated ? load() : setAuth(false))).catch(() => setAuth(false));
   }, [load]);
 
-  // mutate(fn, {config|users: true} | {tpl: level} | {del: level})
+  // mutate(fn, {config, users, library})
   const mutate = useCallback((fn, mark = {}) => {
     setS((prev) => { const next = structuredClone(prev); fn(next); return next; });
-    setDirty((d) => ({
-      config: d.config || !!mark.config,
-      users: d.users || !!mark.users,
-      tpl: mark.tpl && !d.tpl.includes(mark.tpl) ? [...d.tpl, mark.tpl] : mark.del ? d.tpl.filter((l) => l !== mark.del) : d.tpl,
-      del: mark.del && !d.del.includes(mark.del) ? [...d.del, mark.del] : mark.tpl ? d.del.filter((l) => l !== mark.tpl) : d.del,
-    }));
+    setDirty((d) => ({ config: d.config || !!mark.config, users: d.users || !!mark.users, library: d.library || !!mark.library }));
   }, []);
 
-  const isDirty = dirty.config || dirty.users || dirty.tpl.length > 0 || dirty.del.length > 0;
+  const sync = useMemo(() => (S ? pendingSync(S) : { put: {}, del: [] }), [S]);
+  const T = useMemo(() => (S ? effectiveTemplates(S) : {}), [S]);
+  const isDirty = dirty.config || dirty.users || dirty.library || Object.keys(sync.put).length > 0 || sync.del.length > 0;
 
   const save = useCallback(async () => {
     setSaving(true);
     try {
+      if (dirty.library) await api("PUT", "/api/library", S.library);
       if (dirty.config) await api("PUT", "/api/config", S.config);
       if (dirty.users) await api("PUT", "/api/users", S.users);
-      for (const l of dirty.del) await api("DELETE", "/api/templates/" + encodeURIComponent(l));
-      for (const l of dirty.tpl) if (S.templates[l]) await api("PUT", "/api/templates/" + encodeURIComponent(l), S.templates[l]);
+      for (const l of sync.del) await api("DELETE", "/api/templates/" + encodeURIComponent(l));
+      for (const [l, t] of Object.entries(sync.put)) await api("PUT", "/api/templates/" + encodeURIComponent(l), t);
+      setS((prev) => ({ ...prev, templates: effectiveTemplates(prev), _delete: [] }));
       setDirty(CLEAN);
       notify("Gespeichert – aktiv in spätestens 60 Sekunden");
     } catch (e) {
       notify("Fehler: " + e.message, true);
     }
     setSaving(false);
-  }, [S, dirty, notify]);
+  }, [S, dirty, sync, notify]);
 
   useEffect(() => {
     const key = (e) => { if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); if (isDirty) save(); } };
@@ -80,13 +85,15 @@ export default function App() {
   if (!auth) return <Login onLogin={load} />;
   if (!S) return null;
 
-  const store = { S, mutate, notify, nav, setNav, load, isDirty };
+  const store = { S, T, mutate, notify, nav, setNav, load, isDirty };
   return (
     <Store.Provider value={store}>
       <Navbar isDirty={isDirty} saving={saving} onSave={save} onLogout={async () => { await api("POST", "/api/logout").catch(() => {}); setAuth(false); }} />
-      <div className="max-w-[1440px] mx-auto px-4 py-4 grid gap-4 lg:grid-cols-[250px_minmax(0,1fr)]">
-        <DomainList />
-        <main className="min-w-0">{nav.page === "settings" ? <Settings /> : <LevelPage key={nav.level} />}</main>
+      <div className="max-w-[1440px] mx-auto px-4 py-4">
+        {nav.page === "signatures" && <SignaturesPage />}
+        {nav.page === "sig" && <SignatureEditor key={nav.id} id={nav.id} />}
+        {nav.page === "domains" && <DomainPage />}
+        {nav.page === "settings" && <Settings />}
       </div>
       <Toast toast={toast} />
     </Store.Provider>
@@ -99,67 +106,28 @@ function Navbar({ isDirty, saving, onSave, onLogout }) {
   const status = c.enabled === false ? ["Deaktiviert", "bg-mc-danger"]
     : c.dry_run ? [(c.live_senders || []).length ? `Testmodus · ${c.live_senders.length} Live-Tester` : "Testmodus", "bg-mc-warning"]
     : ["Aktiv", "bg-mc-success"];
+  const Tab = ({ page, icon, label, match = [page] }) => (
+    <button className={"btn btn-sm " + (match.includes(nav.page) ? "btn-active" : "btn-default")} onClick={() => setNav({ page, level: nav.level || "default", tab: "sig" })}>
+      <Icon name={icon} /> <span className="hidden sm:inline">{label}</span>
+    </button>
+  );
   return (
     <nav className="sticky top-0 z-20 bg-[#f6f6f6] border-b border-mc-border dark:bg-mc-d-surface dark:border-mc-d-border">
-      <div className="max-w-[1440px] mx-auto px-4 h-[52px] flex items-center gap-3">
-        <button className="flex items-center gap-2 font-bold text-[15px]" onClick={() => setNav({ page: "level", level: "default", tab: "sig" })}>
+      <div className="max-w-[1440px] mx-auto px-4 h-[52px] flex items-center gap-2">
+        <div className="flex items-center gap-2 font-bold text-[15px] mr-2">
           <span className="w-7 h-7 rounded bg-mc-cow text-[#5a4300] grid place-items-center"><Icon name="envelope" /></span>
-          <span>mailcow <span className="font-normal muted">Signaturen</span></span>
-        </button>
-        <span className={`badge text-white ${status[1]}`}>{status[0]}</span>
+          <span className="hidden md:inline">mailcow <span className="font-normal muted">Signaturen</span></span>
+        </div>
+        <Tab page="signatures" icon="pen" label="Signaturen" match={["signatures", "sig"]} />
+        <Tab page="domains" icon="globe" label="Domains" />
+        <Tab page="settings" icon="gear" label="Einstellungen" />
+        <span className={`badge text-white ml-1 ${status[1]}`}>{status[0]}</span>
         <div className="flex-1" />
-        <button className={"btn btn-sm " + (nav.page === "settings" ? "btn-active" : "btn-default")} onClick={() => setNav({ ...nav, page: "settings" })}>
-          <Icon name="gear" /> <span className="hidden sm:inline">Einstellungen</span>
-        </button>
         <button className="btn btn-sm btn-success" disabled={!isDirty || saving} onClick={onSave} title="Strg+S">
           <Icon name="save" /> {saving ? "Speichert …" : "Speichern"}{isDirty && !saving ? " •" : ""}
         </button>
         <button className="btn btn-sm btn-default" onClick={onLogout} title="Abmelden"><Icon name="power" /></button>
       </div>
     </nav>
-  );
-}
-
-function DomainList() {
-  const { S, mutate, nav, setNav, notify, load, isDirty } = useStore();
-  const [newDomain, setNewDomain] = useState("");
-  const go = (level) => setNav({ page: "level", level, tab: "sig" });
-  const active = (l) => nav.page === "level" && nav.level === l;
-  const add = (e) => {
-    e.preventDefault();
-    const d = newDomain.trim().toLowerCase();
-    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(d)) return notify("Ungültige Domain", true);
-    mutate((n) => { n.config.domains = [...new Set([...(n.config.domains || []), d])].sort(); }, { config: true });
-    setNewDomain(""); go(d);
-  };
-  const sync = async () => {
-    if (isDirty) return notify("Bitte erst speichern", true);
-    try {
-      const r = await api("POST", "/api/sync");
-      notify(`${r.mailboxes} Postfächer · ${r.added} neu · ${(r.domains_added || []).length} neue Domains`);
-      await load();
-    } catch (e) { notify(e.message, true); }
-  };
-  const Item = ({ level, icon, label, meta }) => (
-    <button className={"mc-item " + (active(level) ? "mc-item-active" : "")} onClick={() => go(level)}>
-      <Icon name={icon} /> <span className="truncate">{label}</span>
-      {meta && <span className={"ml-auto text-[11px] " + (active(level) ? "text-white/80" : "muted")}>{meta}</span>}
-    </button>
-  );
-  return (
-    <aside className="space-y-4">
-      <div className="card overflow-hidden">
-        <div className="card-header">Signaturen</div>
-        <Item level="default" icon="star" label="Standard" meta="alle" />
-        {domains(S).map((d) => <Item key={d} level={d} icon="globe" label={d} meta={hasOwn(S, d) ? "eigene" : ""} />)}
-        <form onSubmit={add} className="flex gap-2 p-2 border-t border-mc-border dark:border-mc-d-border">
-          <input className="form-control h-[28px]" placeholder="domain.de" value={newDomain} onChange={(e) => setNewDomain(e.target.value)} />
-          <button className="btn btn-sm btn-default" title="Domain hinzufügen"><Icon name="plus" /></button>
-        </form>
-      </div>
-      {S.sync_available && (
-        <button className="btn btn-default w-full" onClick={sync}><Icon name="sync" /> Aus mailcow übernehmen</button>
-      )}
-    </aside>
   );
 }

@@ -156,6 +156,9 @@ def validate_config(cfg):
         raise ValueError("logo_mode muss link oder embed sein")
     if "vars" in cfg and not isinstance(cfg["vars"], dict):
         raise ValueError("vars muss ein Objekt sein")
+    sigs = cfg.get("signatures", {})
+    if not isinstance(sigs, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in sigs.items()):
+        raise ValueError("signatures muss {ebene: signatur-id} sein")
     cfg["domains"] = sorted({d.strip().lower() for d in cfg.get("domains", []) if d.strip()})
     for key in ("exclude_senders", "live_senders"):
         if key in cfg:
@@ -164,6 +167,19 @@ def validate_config(cfg):
             if bad:
                 raise ValueError("Ungueltige Adresse in %s: %s" % (key, ", ".join(bad)))
     return cfg
+
+
+def validate_library(lib):
+    """Signatur-Bibliothek: {id: {"name": str, "design": {...}}} – nur fuer die UI, das Plugin
+    liest weiterhin die daraus erzeugten Vorlagen in templates/<ebene>/."""
+    if not isinstance(lib, dict):
+        raise ValueError("library muss ein Objekt sein")
+    for sid, entry in lib.items():
+        if not re.match(r"^[a-z0-9_-]{1,64}$", sid):
+            raise ValueError("Ungueltige Signatur-ID: %r" % sid)
+        if not isinstance(entry, dict) or not isinstance(entry.get("name"), str) or not isinstance(entry.get("design"), dict):
+            raise ValueError("Signatur %s braucht name und design" % sid)
+    return lib
 
 
 def validate_users(users):
@@ -375,6 +391,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "config": read_json("config.json", {}),
                 "users": read_json("users.json", {}),
                 "templates": read_templates(),
+                "library": read_json("library.json", {}),
                 "sync_available": bool(os.environ.get("MAILCOW_URL") and os.environ.get("MAILCOW_API_KEY")),
                 "assets": list_assets(),
                 "asset_url": ASSET_URL,
@@ -421,6 +438,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
             data = self.body_json()
             if self.path == "/api/config":
                 write_json("config.json", validate_config(data))
+            elif self.path == "/api/library":
+                write_json("library.json", validate_library(data))
             elif self.path == "/api/users":
                 write_json("users.json", validate_users(data))
             elif self.path.startswith("/api/templates/"):

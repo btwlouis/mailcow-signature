@@ -1,13 +1,14 @@
 import { Fragment, useState } from "react";
 import { useStore } from "../App.jsx";
-import { STD_FIELDS, hasOwn, usersOf } from "../lib/template.js";
+import { STD_FIELDS, usersOf } from "../lib/template.js";
 import { Card, Icon } from "./ui.jsx";
 import { KvEditor } from "./VarsTab.jsx";
+import { SignatureSelect } from "./DomainPage.jsx";
 
 const LABELS = { DisplayName: "Name", Title: "Position", Department: "Abteilung", Phone: "Telefon", Mobile: "Mobil" };
 
 export default function UsersTab({ domain }) {
-  const { S, mutate, notify, setNav } = useStore();
+  const { S, mutate, notify } = useStore();
   const [local, setLocal] = useState("");
   const [open, setOpen] = useState("");
   const list = usersOf(S, domain);
@@ -49,11 +50,7 @@ export default function UsersTab({ domain }) {
                       {STD_FIELDS.map((f) => (
                         <td key={f}><input className="form-control h-[30px] min-w-[110px]" value={u[f] || ""} onChange={(e) => setField(a, f, e.target.value)} /></td>
                       ))}
-                      <td>
-                        {hasOwn(S, a)
-                          ? <button className="badge bg-mc-primary text-white" onClick={() => setNav({ page: "level", level: a, tab: "sig" })}>eigene</button>
-                          : <span className="badge bg-mc-alt text-mc-muted dark:bg-mc-d-alt">Domain</span>}
-                      </td>
+                      <td><SignatureSelect level={a} compact /></td>
                       <td className="whitespace-nowrap">
                         <button className="btn btn-sm btn-default px-2" title="Weitere Felder" onClick={() => setOpen(open === a ? "" : a)}><Icon name="more" /></button>{" "}
                         <button className="btn btn-sm btn-default px-2" title="Entfernen" onClick={() => {
@@ -75,12 +72,6 @@ export default function UsersTab({ domain }) {
                                   onChange={(e) => setField(a, "DisplayNameLocked", e.target.checked ? true : "")} />
                                 Namen nicht aus mailcow überschreiben
                               </label>
-                              {hasOwn(S, a)
-                                ? <button className="btn btn-sm btn-default" onClick={() => setNav({ page: "level", level: a, tab: "sig" })}>Persönliche Signatur</button>
-                                : <button className="btn btn-sm btn-default" onClick={() => {
-                                    mutate((n) => { n.templates[a] = { ...(n.templates[domain] || n.templates.default) }; }, { tpl: a });
-                                    setNav({ page: "level", level: a, tab: "sig" });
-                                  }}>Persönliche Signatur anlegen</button>}
                             </div>
                           </div>
                         </td>

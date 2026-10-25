@@ -8,7 +8,7 @@ Server-side email signatures for [mailcow](https://mailcow.email), placed the wa
 - Detects reply/forward markers of Outlook (desktop, OWA, new Outlook, mobile), Gmail, Apple Mail/iOS, Thunderbird, SOGo, Roundcube, Yahoo and Zimbra.
 - Separate templates for new mails and replies. The reply template can be short or empty (no signature).
 - Templates per domain or per person, with placeholders (`{{DisplayName}}`, `{{Title}}`, `{{#Mobile}}…{{/Mobile}}`, …).
-- **Web UI** with a visual **signature designer** (logo, colors, fields), live preview incl. dark mode simulation, company data and people per domain.
+- **Web UI**: a signature gallery with ready-made layouts (Classic, Logo on top, Modern, Compact, Minimal) to customize – logo, colors, font, fields – then pick one per domain or person. Live preview incl. dark mode simulation; placeholders and people per domain.
 - **Domains and mailboxes synced from mailcow** with one click (mailcow API key).
 
 ## Safety
@@ -55,9 +55,9 @@ Changes are picked up within 60 seconds, without a restart.
 | Uninstall (keeps templates/config) | `curl -fsSL https://raw.githubusercontent.com/btwlouis/mailcow-signature/main/install.sh \| sudo bash -s -- --uninstall` |
 | Uninstall everything | `curl -fsSL https://raw.githubusercontent.com/btwlouis/mailcow-signature/main/install.sh \| sudo bash -s -- --uninstall --purge` |
 
-## Signature designer, logos and dark mode
+## Signatures, logos and dark mode
 
-The designer builds email-safe HTML (tables, inline styles, no background colors) for Outlook, Gmail, Apple Mail and others. Logos are uploaded in the UI, stored in `data/web/sig-assets/` and served publicly by mailcow's nginx at `https://<mailcow-host>/sig-assets/…`, so recipients can load them. The UI checks that this URL is reachable.
+Signatures live in a library (`library.json`); domains and people point to one of them (`signatures` in `config.json`). On save the UI generates the templates the plugin reads. The designer builds email-safe HTML (tables, inline styles, no background colors) for Outlook, Gmail, Apple Mail and others. Logos are uploaded in the UI, stored in `data/web/sig-assets/` and served publicly by mailcow's nginx at `https://<mailcow-host>/sig-assets/…`, so recipients can load them. The UI checks that this URL is reachable.
 
 **Logo mode** (Settings): *Linked* (default, small mails, but classic Outlook for Windows asks before loading external images) or *Embedded* (inline CID attachment, shown immediately everywhere, mails get a paperclip). Embedding is skipped for single-part HTML mails, which keep the link.
 
