@@ -2,6 +2,7 @@
 # Tests install.sh against a fake mailcow directory with a stubbed docker CLI.
 #   bash tests/installer_test.sh        (needs python3 with PyYAML)
 set -euo pipefail
+trap '[ -n "${GITHUB_ACTIONS:-}" ] && echo "::error title=aborted at line $LINENO::$BASH_COMMAND"' ERR
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK="$(mktemp -d)"
@@ -10,7 +11,14 @@ PY="${PYTHON:-python3}"
 FAILS=0
 
 pass() { printf 'PASS %s\n' "$1"; }
-fail() { printf 'FAIL %s\n' "$1"; FAILS=$((FAILS + 1)); }
+fail() {
+  printf 'FAIL %s\n' "$1"; FAILS=$((FAILS + 1))
+  # in GitHub Actions als Annotation, damit der Grund ohne Login sichtbar ist
+  if [ -n "${GITHUB_ACTIONS:-}" ]; then
+    echo "::error title=$1::$(tail -15 "$WORK/out.log" 2>/dev/null | annotate)"
+  fi
+}
+annotate() { sed -e 's/%/%25/g' -e 's/\r//g' | awk 'BEGIN{ORS="%0A"} {print}'; }
 check() { if eval "$2"; then pass "$1"; else fail "$1"; fi; }
 
 MC="$WORK/mailcow"

@@ -2,6 +2,7 @@
 # Runs the plugin inside a real rspamd container and checks the rewritten mails.
 #   RSPAMD_IMAGE=rspamd/rspamd:latest bash tests/rspamd_integration.sh
 set -euo pipefail
+trap '[ -n "${GITHUB_ACTIONS:-}" ] && echo "::error title=aborted at line $LINENO::$BASH_COMMAND"' ERR
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 IMAGE="${RSPAMD_IMAGE:-rspamd/rspamd:latest}"
@@ -12,7 +13,14 @@ cleanup() { docker rm -f "$NAME" >/dev/null 2>&1 || true; rm -rf "$WORK"; }
 trap cleanup EXIT
 
 pass() { printf 'PASS %s\n' "$1"; }
-fail() { printf 'FAIL %s\n' "$1"; FAILS=$((FAILS + 1)); }
+fail() {
+  printf 'FAIL %s\n' "$1"; FAILS=$((FAILS + 1))
+  # in GitHub Actions als Annotation, damit der Grund ohne Login sichtbar ist
+  if [ -n "${GITHUB_ACTIONS:-}" ]; then
+    echo "::error title=$1::$({ echo "${OUT:-}" | tail -25; docker logs "$NAME" 2>&1 | grep -i -E "mailcow_signature|error" | tail -10; } | annotate)"
+  fi
+}
+annotate() { sed -e 's/%/%25/g' -e 's/\r//g' | awk 'BEGIN{ORS="%0A"} {print}'; }
 
 # --- Konfiguration wie auf einem mailcow-Host
 SIG="$WORK/local.d/mailcow-signature"
@@ -49,13 +57,14 @@ start() {
     if printf 'Subject: ping\r\n\r\nping\r\n' | docker exec -i "$NAME" rspamc -h localhost:11333 >/dev/null 2>&1; then return 0; fi
     sleep 1
   done
-  docker logs "$NAME" | tail -50
+  docker logs "$NAME" 2>&1 | tail -50
+  [ -n "${GITHUB_ACTIONS:-}" ] && echo "::error title=rspamd did not start::$(docker logs "$NAME" 2>&1 | tail -30 | annotate)"
   echo "rspamd did not start"; exit 1
 }
 
 scan() { # $1 = mail file, rest = rspamc args
   local f="$1"; shift
-  docker exec -i "$NAME" rspamc -h localhost:11333 "$@" --mime < "$f"
+  docker exec -i "$NAME" rspamc -h localhost:11333 "$@" --mime < "$f" || true
 }
 
 mail() { # $1 = from, $2 = body
@@ -99,7 +108,7 @@ write_config link true
 start
 OUT="$(scan "$WORK/m1.eml" -u max@example.com -F max@example.com -r x@external.org)"
 grep -q "Max Integration" <<<"$OUT" && fail "dry run: mail unchanged" || pass "dry run: mail unchanged"
-SYM="$(docker exec -i "$NAME" rspamc -h localhost:11333 -u max@example.com -F max@example.com -r x@external.org < "$WORK/m1.eml")"
+SYM="$(docker exec -i "$NAME" rspamc -h localhost:11333 -u max@example.com -F max@example.com -r x@external.org < "$WORK/m1.eml" || true)"
 grep -q "MAILCOW_SIGNATURE.*dry_run" <<<"$SYM" && pass "dry run: symbol says dry_run" || { fail "dry run: symbol says dry_run"; echo "$SYM"; }
 mail "Tester <tester@example.com>" "Hallo" > "$WORK/m5.eml"
 OUT="$(scan "$WORK/m5.eml" -u tester@example.com -F tester@example.com -r x@external.org)"
