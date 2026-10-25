@@ -273,7 +273,8 @@ EOF
 restart_services() {
   if [ "$1" = 1 ]; then
     info "Starting web UI container"
-    "${COMPOSE[@]}" up -d signature-ui-mailcow >/dev/null
+    # --force-recreate: app.py ist nur gemountet, ein laufender Prozess würde den alten Code behalten
+    "${COMPOSE[@]}" up -d --force-recreate signature-ui-mailcow >/dev/null
   fi
   info "Restarting rspamd"
   local since

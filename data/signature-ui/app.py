@@ -345,8 +345,20 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     # Routen
     def do_GET(self):
+        # Fehler nie als leere Antwort enden lassen (Browser: ERR_EMPTY_RESPONSE)
+        try:
+            self.get()
+        except Exception as e:  # noqa: BLE001
+            print("GET %s failed: %r" % (self.path, e))
+            self.send(500, ("Fehler: %s" % e).encode(), "text/plain; charset=utf-8")
+
+    def get(self):
         if self.path in ("/", "/index.html"):
-            with open(os.path.join(DIST, "index.html"), "rb") as f:
+            index = os.path.join(DIST, "index.html")
+            if not os.path.isfile(index):
+                return self.send(500, ("Web UI fehlt: %s nicht gefunden. Installer erneut ausfuehren." % index).encode(),
+                                 "text/plain; charset=utf-8")
+            with open(index, "rb") as f:
                 return self.send(200, f.read(), "text/html; charset=utf-8")
         if self.path.startswith("/static/"):
             # React-Build (webui/ -> dist/static)
