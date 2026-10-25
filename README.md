@@ -23,6 +23,7 @@
 
 <p align="center">
   <img src="docs/demo.gif" alt="Reply, send, and the signature lands right below the reply – above the quoted thread" width="100%">
+  <br><sub>▶ Smoother: <a href="docs/demo.mp4">watch in Full HD at 60 fps (MP4)</a></sub>
 </p>
 
 **mailcow-signature** adds company-wide email signatures to [mailcow](https://mailcow.email), the way Exclaimer or CodeTwo do it for Microsoft 365: **directly below the newest message, above the quoted history**. mailcow's built-in *domain wide footer* always appends to the very end, after the whole thread.
