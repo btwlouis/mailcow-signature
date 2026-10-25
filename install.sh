@@ -167,7 +167,13 @@ install_config() {
     info "Keeping existing config.json"
   fi
   [ -f "$SIGDIR/users.json" ] || echo "{}" > "$SIGDIR/users.json"
-  chmod -R a+rX "$SIGDIR"
+  fix_permissions
+}
+
+# rspamd runs as _rspamd and needs to traverse the folders (x bit on directories)
+fix_permissions() {
+  find "$SIGDIR" -type d -exec chmod 0755 {} +
+  find "$SIGDIR" -type f -exec chmod 0644 {} +
 }
 
 install_ui() {

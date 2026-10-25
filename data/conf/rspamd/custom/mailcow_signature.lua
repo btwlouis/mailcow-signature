@@ -879,22 +879,22 @@ end
 
 function M.read_file(path, ttl)
   local c = cache[path]
-  if c and now() - c.t < (ttl or 60) then return c.data end
+  if c and now() - c.t < (ttl or 60) then return c.data, c.err end
   local data
-  local f = io.open(path, 'rb')
+  local f, err = io.open(path, 'rb')
   if f then
     data = f:read('*a')
     f:close()
   end
-  cache[path] = { t = now(), data = data }
-  return data
+  cache[path] = { t = now(), data = data, err = err }
+  return data, err
 end
 
 local json_cache = {}
 
 local function read_json(path, ttl, parse)
-  local data = M.read_file(path, ttl)
-  if not data then return nil end
+  local data, err = M.read_file(path, ttl)
+  if not data then return nil, err end
   local jc = json_cache[path]
   if jc and jc.raw == data then return jc.obj end
   local obj = parse(data)
@@ -973,10 +973,16 @@ local function parse_json(data)
   return parser:get_object()
 end
 
+local last_cfg_warn = 0
+
 local function load_config()
   local cfg = {}
   for k, v in pairs(M.defaults) do cfg[k] = v end
-  local file = read_json(BASE .. '/config.json', 30, parse_json)
+  local file, err = read_json(BASE .. '/config.json', 30, parse_json)
+  if err and now() - last_cfg_warn > 60 then
+    last_cfg_warn = now()
+    rspamd_logger.errx(rspamd_config, '%s: cannot read config.json (%s) - check permissions: directories 755, files 644', N, err)
+  end
   if type(file) == 'table' then
     for k, v in pairs(file) do cfg[k] = v end
   end

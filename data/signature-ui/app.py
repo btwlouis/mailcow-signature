@@ -36,8 +36,32 @@ lock = threading.Lock()
 
 # --------------------------------------------------------------------------- Dateien
 
+def fix_permissions():
+    """rspamd (Benutzer _rspamd) muss die Ordner betreten koennen: Ordner 755, Dateien 644."""
+    for root, dirs, files in os.walk(DATA):
+        for d in dirs:
+            p = os.path.join(root, d)
+            if os.stat(p).st_mode & 0o777 != 0o755:
+                os.chmod(p, 0o755)
+        for f in files:
+            p = os.path.join(root, f)
+            if os.stat(p).st_mode & 0o777 != 0o644:
+                os.chmod(p, 0o644)
+    if os.stat(DATA).st_mode & 0o777 != 0o755:
+        os.chmod(DATA, 0o755)
+
+
+def permission_watchdog():
+    while True:
+        try:
+            fix_permissions()
+        except OSError as e:
+            print("fix_permissions: %s" % e)
+        time.sleep(60)
+
+
 def atomic_write(path, data: bytes):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    os.makedirs(os.path.dirname(path), mode=0o755, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".tmp.")
     with os.fdopen(fd, "wb") as f:
         f.write(data)
@@ -278,6 +302,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 write_templates(self.path[len("/api/templates/"):].lower(), data or {})
             else:
                 return self.send(404, {"error": "Nicht gefunden"})
+            fix_permissions()
             self.send(200, {"ok": True})
         except ValueError as e:
             self.send(400, {"error": str(e)})
@@ -329,6 +354,7 @@ def main():
         raise SystemExit("SIGNATURE_UI_PASSWORD muss gesetzt sein (mind. 10 Zeichen)")
     if not os.path.isdir(DATA):
         raise SystemExit("Datenverzeichnis nicht gefunden: %s" % DATA)
+    threading.Thread(target=permission_watchdog, daemon=True).start()
     srv = http.server.ThreadingHTTPServer((args.bind, args.port), Handler)
     print("mailcow-signature UI: http://%s:%d  (Daten: %s)" % (args.bind, args.port, DATA))
     srv.serve_forever()
