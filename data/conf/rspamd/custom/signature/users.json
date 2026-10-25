@@ -1,0 +1,12 @@
+{
+  "max.mustermann@example.com": {
+    "DisplayName": "Max Mustermann",
+    "Title": "Geschäftsführer",
+    "Mobile": "+49 170 1234567"
+  },
+  "erika.musterfrau@example.com": {
+    "DisplayName": "Erika Musterfrau",
+    "Title": "Vertrieb",
+    "Phone": "+49 30 123456-12"
+  }
+}

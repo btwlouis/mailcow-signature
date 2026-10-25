@@ -1,0 +1,2 @@
+{{DisplayName}}{{#Title}} · {{Title}}{{/Title}}
+{{Company}} · Tel. {{Phone}}

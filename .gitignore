@@ -1,0 +1,6 @@
+*.tar.gz
+__pycache__/
+*.pyc
+*.bak
+.tmp.*
+.users.*

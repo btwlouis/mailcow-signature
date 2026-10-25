@@ -1,0 +1,21 @@
+# In /opt/mailcow-dockerized/docker-compose.override.yml einfügen
+# (falls die Datei schon existiert: nur den Service unter "services:" ergänzen).
+# Variablen SIGNATURE_UI_PASSWORD, SIGNATURE_UI_API_KEY und MAILCOW_HOSTNAME kommen aus mailcow.conf.
+services:
+  signature-ui-mailcow:
+    image: python:3.12-alpine
+    restart: always
+    command: ["python", "/app/app.py", "--data", "/data", "--bind", "0.0.0.0", "--port", "8090"]
+    environment:
+      - SIGNATURE_UI_PASSWORD=${SIGNATURE_UI_PASSWORD}
+      - MAILCOW_URL=https://${MAILCOW_HOSTNAME}
+      - MAILCOW_API_KEY=${SIGNATURE_UI_API_KEY:-}
+      - TZ=${TZ}
+    volumes:
+      - ./data/signature-ui:/app:ro,z
+      - ./data/conf/rspamd/custom/signature:/data:z
+    ports:
+      # nur lokal erreichbar – Zugriff per SSH-Tunnel (siehe README)
+      - "127.0.0.1:8090:8090"
+    networks:
+      mailcow-network:

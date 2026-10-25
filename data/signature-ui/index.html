@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Signaturen · mailcow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f5f6f8; --panel:#ffffff; --panel-2:#f9fafb; --line:#e4e7ec; --line-2:#d0d5dd;
+  --text:#101828; --text-2:#475467; --text-3:#98a2b3;
+  --accent:#2563eb; --accent-2:#1d4ed8; --accent-soft:#eff4ff;
+  --ok:#079455; --ok-soft:#ecfdf3; --warn:#b54708; --warn-soft:#fffaeb; --danger:#d92d20; --danger-soft:#fef3f2;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+  --radius:10px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0c111d; --panel:#161b26; --panel-2:#1f242f; --line:#2a303c; --line-2:#363e4c;
+  --text:#f5f5f6; --text-2:#b4bac5; --text-3:#7a8394;
+  --accent:#528bff; --accent-2:#6d9dff; --accent-soft:#18243f;
+  --ok:#47cd89; --ok-soft:#0d2a1d; --warn:#fdb022; --warn-soft:#2e2310; --danger:#f97066; --danger-soft:#3a1714;
+  --shadow:0 1px 2px rgba(0,0,0,.4);
+}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--accent)}
+.hidden{display:none!important}
+
+/* Buttons & Inputs */
+.btn{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--line-2);background:var(--panel);cursor:pointer;font-weight:500;white-space:nowrap;transition:background .15s,border-color .15s}
+.btn:hover{background:var(--panel-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-2)}
+.btn.primary:disabled{opacity:.45;cursor:default}
+.btn.danger{color:var(--danger)}
+.btn.danger:hover{background:var(--danger-soft);border-color:var(--danger)}
+.btn.ghost{border-color:transparent;background:transparent}
+.btn.ghost:hover{background:var(--panel-2)}
+.btn.sm{height:30px;padding:0 10px;font-size:13px}
+.input,textarea.input,select.input{width:100%;height:36px;padding:0 11px;border:1px solid var(--line-2);border-radius:8px;background:var(--panel);outline:none;transition:border-color .15s,box-shadow .15s}
+textarea.input{height:auto;padding:10px 11px;resize:vertical}
+.input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+label.field{display:block;margin-bottom:14px}
+label.field>span{display:block;font-weight:500;margin-bottom:6px}
+.hint{color:var(--text-3);font-size:12.5px}
+code,.mono{font-family:"JetBrains Mono",ui-monospace,Consolas,monospace;font-size:12.5px}
+
+/* Login */
+#login{min-height:100%;display:grid;place-items:center;padding:16px}
+.login-card{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:32px;box-shadow:var(--shadow)}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px}
+.logo-mark{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,var(--accent),#7c3aed);display:grid;place-items:center;color:#fff}
+.login-card h1{font-size:20px;margin:22px 0 4px}
+.login-card p{color:var(--text-2);margin:0 0 22px}
+.error{color:var(--danger);font-size:13px;min-height:20px;margin-top:8px}
+
+/* Layout */
+#app{display:grid;grid-template-columns:260px 1fr;grid-template-rows:56px 1fr;height:100%}
+header.top{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+header.top .spacer{flex:1}
+.status-chip{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:99px;font-size:12.5px;font-weight:500}
+.status-chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.chip-ok{background:var(--ok-soft);color:var(--ok)}
+.chip-warn{background:var(--warn-soft);color:var(--warn)}
+.chip-off{background:var(--danger-soft);color:var(--danger)}
+.dirty-dot{width:8px;height:8px;border-radius:50%;background:var(--warn);display:inline-block}
+nav.side{background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:14px 10px}
+.nav-label{font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);padding:14px 10px 6px}
+.nav-item{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:8px;border:0;background:none;text-align:left;cursor:pointer;color:var(--text-2);font-weight:500}
+.nav-item:hover{background:var(--panel-2);color:var(--text)}
+.nav-item.active{background:var(--accent-soft);color:var(--accent)}
+.nav-item .meta{margin-left:auto;font-size:11.5px;color:var(--text-3);font-weight:400}
+.nav-item svg{flex:none}
+.add-domain{display:flex;gap:6px;padding:8px 4px}
+main{overflow:auto;padding:28px 32px 60px}
+.page-head{display:flex;align-items:flex-start;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.page-head h2{margin:0;font-size:22px;letter-spacing:-.01em}
+.page-head p{margin:4px 0 0;color:var(--text-2)}
+.page-head .actions{margin-left:auto;display:flex;gap:8px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:20px}
+.tab{padding:9px 14px;border:0;background:none;cursor:pointer;color:var(--text-2);font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.card-pad{padding:20px}
+.card h3{margin:0 0 4px;font-size:15px}
+.card .sub{color:var(--text-2);margin:0 0 16px}
+.seg{display:inline-flex;background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:3px}
+.seg button{border:0;background:none;padding:5px 12px;border-radius:6px;cursor:pointer;color:var(--text-2);font-weight:500;font-size:13px}
+.seg button.active{background:var(--panel);color:var(--text);box-shadow:var(--shadow)}
+
+/* Editor */
+.editor-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+.editor-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;border-bottom:1px solid var(--line)}
+.editor-bar .spacer{flex:1}
+textarea.code{display:block;width:100%;min-height:420px;border:0;outline:none;resize:vertical;padding:14px;background:var(--panel);font-family:"JetBrains Mono",ui-monospace,Consolas,monospace;font-size:12.5px;line-height:1.6;tab-size:2;border-radius:0 0 var(--radius) var(--radius)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+.chip{border:1px solid var(--line-2);background:var(--panel);border-radius:6px;padding:2px 8px;font-size:12px;cursor:pointer;font-family:"JetBrains Mono",ui-monospace,monospace;color:var(--text-2)}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.reply-mode{display:flex;gap:8px;flex-wrap:wrap;padding:12px 14px;border-bottom:1px solid var(--line)}
+.radio{display:flex;align-items:center;gap:8px;padding:7px 12px;border:1px solid var(--line-2);border-radius:8px;cursor:pointer;font-size:13px}
+.radio:has(input:checked){border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.radio input{accent-color:var(--accent);margin:0}
+.preview-wrap{position:sticky;top:0}
+.preview-bar{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.preview-bar .spacer{flex:1}
+iframe.preview{display:block;width:100%;height:560px;border:0;background:#fff;border-radius:0 0 var(--radius) var(--radius)}
+pre.preview-text{margin:0;padding:16px;min-height:560px;white-space:pre-wrap;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12.5px;background:var(--panel);border-radius:0 0 var(--radius) var(--radius)}
+.empty{padding:40px 24px;text-align:center}
+.empty .icon{width:44px;height:44px;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;margin:0 auto 14px}
+.empty h3{margin:0 0 6px}
+.empty p{color:var(--text-2);margin:0 auto 18px;max-width:440px}
+
+/* Tabellen / KV */
+table.grid{width:100%;border-collapse:collapse}
+table.grid th{text-align:left;font-size:12px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+table.grid td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.grid tr:last-child td{border-bottom:0}
+table.grid td .input{height:32px}
+table.grid tr.expand td{background:var(--panel-2)}
+.kv{display:grid;grid-template-columns:220px 1fr 36px;gap:8px;margin-bottom:8px;align-items:center}
+.icon-btn{width:32px;height:32px;display:grid;place-items:center;border:0;background:none;border-radius:7px;cursor:pointer;color:var(--text-3)}
+.icon-btn:hover{background:var(--danger-soft);color:var(--danger)}
+.icon-btn.neutral:hover{background:var(--panel-2);color:var(--text)}
+.badge{display:inline-block;font-size:11.5px;padding:1px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent);font-weight:500}
+.badge.gray{background:var(--panel-2);color:var(--text-3)}
+.toggle-row{display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid var(--line)}
+.toggle-row:last-child{border-bottom:0}
+.toggle-row .txt{flex:1}
+.toggle-row .txt b{display:block;font-weight:600}
+.toggle-row .txt span{color:var(--text-2);font-size:13px}
+.switch{position:relative;width:40px;height:22px;flex:none;margin-top:2px}
+.switch input{opacity:0;width:0;height:0}
+.switch i{position:absolute;inset:0;border-radius:99px;background:var(--line-2);cursor:pointer;transition:background .15s}
+.switch i::after{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.switch input:checked+i{background:var(--accent)}
+.switch input:checked+i::after{transform:translateX(18px)}
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.toast{position:fixed;right:20px;bottom:20px;padding:12px 16px;border-radius:10px;background:var(--text);color:var(--bg);box-shadow:0 8px 24px rgba(0,0,0,.2);font-weight:500;opacity:0;transform:translateY(8px);transition:all .2s;pointer-events:none;z-index:50;max-width:420px}
+.toast.show{opacity:1;transform:none}
+.toast.err{background:var(--danger);color:#fff}
+.stack>*+*{margin-top:20px}
+
+@media (max-width:1100px){.editor-grid{grid-template-columns:1fr}.preview-wrap{position:static}.settings-grid{grid-template-columns:1fr}}
+@media (max-width:760px){
+  #app{grid-template-columns:1fr;grid-template-rows:56px auto 1fr}
+  nav.side{border-right:0;border-bottom:1px solid var(--line);max-height:220px}
+  main{padding:20px 16px 60px}
+  .kv{grid-template-columns:1fr 1fr 36px}
+  header.top .hide-sm{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login" class="hidden">
+  <form class="login-card" id="loginForm">
+    <div class="logo"><div class="logo-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3-1 4-6 7-6s2 5 5 5 3-3 6-3"/><path d="M3 21h18"/></svg></div>Signaturen</div>
+    <h1>Anmelden</h1>
+    <p>Serverseitige E-Mail-Signaturen für mailcow verwalten.</p>
+    <label class="field"><span>Passwort</span><input class="input" type="password" id="pw" autocomplete="current-password" autofocus></label>
+    <button class="btn primary" style="width:100%;justify-content:center" type="submit">Anmelden</button>
+    <div class="error" id="loginErr"></div>
+  </form>
+</div>
+
+<!-- App -->
+<div id="app" class="hidden">
+  <header class="top">
+    <div class="logo"><div class="logo-mark"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3-1 4-6 7-6s2 5 5 5 3-3 6-3"/><path d="M3 21h18"/></svg></div><span class="hide-sm">Signaturen</span></div>
+    <span id="statusChip" class="status-chip"></span>
+    <div class="spacer"></div>
+    <span id="dirtyInfo" class="hint hidden"><span class="dirty-dot"></span>&nbsp; Ungespeicherte Änderungen</span>
+    <button class="btn primary" id="saveBtn" disabled>Speichern</button>
+    <button class="btn ghost" id="logoutBtn" title="Abmelden"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg></button>
+  </header>
+  <nav class="side" id="side"></nav>
+  <main id="main"></main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const FILES = ["new.html", "new.txt", "reply.html", "reply.txt"];
+const STD_FIELDS = ["DisplayName", "Title", "Department", "Phone", "Mobile"];
+const AUTO_VARS = ["DisplayName", "FirstName", "LastName", "Email", "Domain", "Year"];
+
+let S = null;              // Serverzustand (wird lokal bearbeitet)
+let dirty = { config: false, users: false, tpl: new Set(), del: new Set() };
+let view = { page: "level", level: "default", tab: "sig", kind: "new", fmt: "html", previewKind: "reply", sampleUser: "", expanded: "" };
+
+// ------------------------------------------------------------------ API
+async function api(method, path, body) {
+  const res = await fetch(path, {
+    method, credentials: "same-origin",
+    headers: { "Content-Type": "application/json", "X-Requested-With": "sigui" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) { showLogin(); throw new Error("Nicht angemeldet"); }
+  if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+  return data;
+}
+function toast(msg, err) {
+  const t = $("#toast"); t.textContent = msg; t.className = "toast show" + (err ? " err" : "");
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.className = "toast", 3200);
+}
+
+// ------------------------------------------------------------------ Rendering wie im rspamd-Plugin
+function lookup(vars, k) {
+  if (k in vars) return vars[k];
+  const lk = k.toLowerCase();
+  for (const x in vars) if (x.toLowerCase() === lk) return vars[x];
+}
+const nonempty = v => v !== undefined && v !== null && String(v) !== "";
+function render(tpl, vars, html) {
+  tpl = tpl.replace(/{{#(\w+)}}([\s\S]*?){{\/\1}}/g, (m, k, i) => nonempty(lookup(vars, k)) ? i : "");
+  tpl = tpl.replace(/{{\^(\w+)}}([\s\S]*?){{\/\1}}/g, (m, k, i) => nonempty(lookup(vars, k)) ? "" : i);
+  const sub = (m, k) => { const v = lookup(vars, k); return nonempty(v) ? (html ? esc(v) : String(v)) : ""; };
+  return tpl.replace(/{{(\w+)}}/g, sub).replace(/%%(\w+)%%/g, sub);
+}
+function htmlToText(h) {
+  h = h.replace(/\r/g, "").replace(/<!--[\s\S]*?-->/g, "").replace(/<style[\s\S]*?<\/style>/gi, "").replace(/[\n\t ]+/g, " ");
+  h = h.replace(/<br[^>]*>/gi, "\n").replace(/<\/(p|div|tr)>/gi, "\n").replace(/<[^>]*>/g, "");
+  h = h.replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
+  return h.replace(/ *\n */g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+function buildVars(addr, domain) {
+  const cfgVars = S.config.vars || {};
+  const v = Object.assign({}, cfgVars["*"] || {}, cfgVars[domain] || {}, S.users[addr] || {});
+  if (!nonempty(v.DisplayName)) v.DisplayName = addr.split("@")[0];
+  if (!nonempty(v.FirstName)) v.FirstName = (String(v.DisplayName).match(/^(\S+)/) || [])[1];
+  if (!nonempty(v.LastName)) v.LastName = (String(v.DisplayName).match(/\s(\S+)$/) || [])[1];
+  v.Email = v.Email || addr; v.Domain = domain; v.Year = String(new Date().getFullYear());
+  return v;
+}
+// gleiche Suchreihenfolge wie das Plugin: Adresse > Domain > default
+function resolve(addr, domain, kind) {
+  for (const level of [addr, domain, "default"]) {
+    const t = S.templates[level];
+    if (!t || (t["new.html"] == null && t["new.txt"] == null)) continue;
+    if (kind === "reply" && (t["reply.html"] != null || t["reply.txt"] != null)) return { level, html: t["reply.html"], txt: t["reply.txt"] };
+    return { level, html: t["new.html"], txt: t["new.txt"] };
+  }
+  return null;
+}
+
+// ------------------------------------------------------------------ Hilfen Zustand
+const isDomain = l => l !== "default" && !l.includes("@");
+function domains() {
+  const set = new Set(S.config.domains || []);
+  Object.keys(S.templates).filter(isDomain).forEach(d => set.add(d));
+  Object.keys(S.config.vars || {}).filter(k => k !== "*").forEach(d => set.add(d));
+  return [...set].sort();
+}
+const usersOf = d => Object.keys(S.users).filter(a => a.endsWith("@" + d)).sort();
+const hasOwn = l => { const t = S.templates[l]; return !!t && (t["new.html"] != null || t["new.txt"] != null); };
+function markDirty(kind, level) {
+  if (kind === "tpl") { dirty.tpl.add(level); dirty.del.delete(level); } else dirty[kind] = true;
+  updateDirty();
+}
+function isDirty() { return dirty.config || dirty.users || dirty.tpl.size || dirty.del.size; }
+function updateDirty() {
+  $("#saveBtn").disabled = !isDirty();
+  $("#dirtyInfo").classList.toggle("hidden", !isDirty());
+}
+function updateStatus() {
+  const c = S.config, chip = $("#statusChip");
+  if (c.enabled === false) { chip.className = "status-chip chip-off"; chip.textContent = "Deaktiviert"; }
+  else if (c.dry_run) { chip.className = "status-chip chip-warn"; chip.textContent = "Testmodus (dry run)"; }
+  else { chip.className = "status-chip chip-ok"; chip.textContent = "Aktiv"; }
+}
+function knownKeys(domain) {
+  const set = new Set([...AUTO_VARS, ...STD_FIELDS]);
+  const cv = S.config.vars || {};
+  [cv["*"], cv[domain]].forEach(o => o && Object.keys(o).forEach(k => set.add(k)));
+  Object.entries(S.users).forEach(([a, f]) => (!domain || a.endsWith("@" + domain)) && Object.keys(f).forEach(k => set.add(k)));
+  set.delete("DisplayNameLocked");
+  return [...set];
+}
+
+// ------------------------------------------------------------------ Seitenleiste
+const ICON = {
+  gear: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  star: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
+  globe: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+  trash: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+  more: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>',
+  pen: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+};
+function renderSide() {
+  const nav = (page, level, icon, label, meta) =>
+    `<button class="nav-item ${view.page === page && (page !== "level" || view.level === level) ? "active" : ""}" data-nav="${page}" data-level="${esc(level)}">${icon}<span>${esc(label)}</span>${meta ? `<span class="meta">${esc(meta)}</span>` : ""}</button>`;
+  let h = nav("settings", "", ICON.gear, "Einstellungen");
+  h += `<div class="nav-label">Signaturen</div>`;
+  h += nav("level", "default", ICON.star, "Standard", "alle Domains");
+  h += `<div class="nav-label">Domains</div>`;
+  const ds = domains();
+  if (!ds.length) h += `<div class="hint" style="padding:4px 10px">Noch keine Domain angelegt.</div>`;
+  ds.forEach(d => h += nav("level", d, ICON.globe, d, hasOwn(d) ? "eigene" : "Standard"));
+  h += `<form class="add-domain" id="addDomain"><input class="input" placeholder="firma.de" id="newDomain" style="height:32px"><button class="btn sm">Hinzufügen</button></form>`;
+  $("#side").innerHTML = h;
+}
+
+// ------------------------------------------------------------------ Hauptbereich
+function renderMain() {
+  renderSide();
+  if (view.page === "settings") return renderSettings();
+  const lvl = view.level, dom = isDomain(lvl), person = lvl.includes("@");
+  const title = lvl === "default" ? "Standard-Signatur" : (person ? "Persönliche Signatur" : lvl);
+  const sub = lvl === "default"
+    ? "Gilt für alle Domains und Personen ohne eigene Signatur."
+    : person ? `${esc(lvl)} · <a href="#" data-nav="level" data-level="${esc(lvl.split("@")[1])}">zurück zu ${esc(lvl.split("@")[1])}</a>`
+    : (hasOwn(lvl) ? "Diese Domain hat eine eigene Signatur." : "Diese Domain verwendet die Standard-Signatur.") + ` · ${usersOf(lvl).length === 1 ? "1 Person" : usersOf(lvl).length + " Personen"}`;
+  const tabs = person ? [["sig", "Signatur"]] : [["sig", "Signatur"], ["vars", lvl === "default" ? "Firmendaten (global)" : "Firmendaten"]];
+  if (dom) tabs.push(["users", "Personen"]);
+  if (!tabs.find(t => t[0] === view.tab)) view.tab = "sig";
+  $("#main").innerHTML = `
+    <div class="page-head"><div><h2>${esc(title)}</h2><p>${sub}</p></div>
+      <div class="actions">${dom ? `<button class="btn danger sm" data-act="removeDomain">${ICON.trash} Domain entfernen</button>` : ""}</div></div>
+    <div class="tabs">${tabs.map(([k, l]) => `<button class="tab ${view.tab === k ? "active" : ""}" data-tab="${k}">${l}</button>`).join("")}</div>
+    <div id="tabBody"></div>`;
+  if (view.tab === "sig") renderSig(lvl);
+  else if (view.tab === "vars") renderVars(lvl);
+  else renderUsers(lvl);
+}
+
+function renderSig(level) {
+  const body = $("#tabBody");
+  const isUser = level.includes("@");
+  if (!hasOwn(level)) {
+    body.innerHTML = `<div class="card"><div class="empty">
+      <div class="icon">${ICON.pen}</div>
+      <h3>Verwendet die Standard-Signatur</h3>
+      <p>${isUser ? "Diese Person" : "Diese Domain"} bekommt aktuell die Standard-Signatur. Lege eine eigene an, wenn ${isUser ? "sie" : "die Domain"} anders aussehen soll, z. B. mit anderem Logo oder anderen Firmendaten.</p>
+      <button class="btn primary" data-act="createOwn">Eigene Signatur anlegen</button>
+      <div class="hint" style="margin-top:10px">Die Standard-Signatur wird als Ausgangspunkt kopiert.</div>
+    </div></div>
+    <div style="margin-top:20px">${previewCard(level)}</div>`;
+    updatePreview(level);
+    return;
+  }
+  const t = S.templates[level];
+  const replyMode = t["reply.html"] == null && t["reply.txt"] == null ? "same"
+    : ((t["reply.html"] || "").trim() === "" && (t["reply.txt"] || "").trim() === "" ? "none" : "own");
+  const file = `${view.kind}.${view.fmt === "html" ? "html" : "txt"}`;
+  const showEditor = view.kind === "new" || replyMode === "own";
+  const auto = view.fmt === "text" && t[file] == null;
+  const keys = knownKeys(isDomain(level) ? level : (isUser ? level.split("@")[1] : ""));
+  body.innerHTML = `
+  <div class="editor-grid">
+    <div class="card">
+      <div class="editor-bar">
+        <div class="seg"><button data-kind="new" class="${view.kind === "new" ? "active" : ""}">Neue Mail</button><button data-kind="reply" class="${view.kind === "reply" ? "active" : ""}">Antwort / Weiterleitung</button></div>
+        <div class="spacer"></div>
+        ${showEditor ? `<div class="seg"><button data-fmt="html" class="${view.fmt === "html" ? "active" : ""}">HTML</button><button data-fmt="text" class="${view.fmt === "text" ? "active" : ""}">Nur-Text</button></div>` : ""}
+      </div>
+      ${view.kind === "reply" ? `<div class="reply-mode">
+        <label class="radio"><input type="radio" name="rm" value="own" ${replyMode === "own" ? "checked" : ""}> Eigene, kürzere Signatur</label>
+        <label class="radio"><input type="radio" name="rm" value="same" ${replyMode === "same" ? "checked" : ""}> Wie bei neuer Mail</label>
+        <label class="radio"><input type="radio" name="rm" value="none" ${replyMode === "none" ? "checked" : ""}> Keine Signatur</label>
+      </div>` : ""}
+      ${showEditor ? `
+        <div class="chips">${keys.map(k => `<button class="chip" data-ins="${esc(k)}">{{${esc(k)}}}</button>`).join("")}
+          <span class="hint" style="width:100%">Klick fügt den Platzhalter ein. Ist Text markiert, wird er nur angezeigt, wenn das Feld befüllt ist.</span></div>
+        ${view.fmt === "text" ? `<div class="editor-bar" style="border-bottom:1px solid var(--line)"><label class="radio" style="border:0;padding:0"><input type="checkbox" id="autoText" ${auto ? "checked" : ""}> Text-Version automatisch aus HTML erzeugen</label></div>` : ""}
+        <textarea class="code" id="code" spellcheck="false" ${auto ? "disabled" : ""}>${esc(auto ? htmlToText(t[view.kind + ".html"] || "") : (t[file] || ""))}</textarea>`
+      : `<div class="empty"><p style="margin:0">${replyMode === "same" ? "Antworten und Weiterleitungen bekommen dieselbe Signatur wie neue Mails." : "Antworten und Weiterleitungen bekommen keine Signatur."}</p></div>`}
+    </div>
+    <div class="preview-wrap">${previewCard(level)}</div>
+  </div>
+  <div style="display:flex;justify-content:flex-end;margin-top:16px">
+    ${level !== "default" ? `<button class="btn danger sm" data-act="dropOwn">${ICON.trash} Eigene Signatur löschen (wieder Standard verwenden)</button>` : ""}
+  </div>`;
+  updatePreview(level);
+}
+
+function previewCard(level) {
+  const dom = isDomain(level) ? level : (level.includes("@") ? level.split("@")[1] : (domains()[0] || "example.com"));
+  const people = level.includes("@") ? [level] : (isDomain(level) ? usersOf(level) : Object.keys(S.users).sort());
+  if (!people.includes(view.sampleUser)) view.sampleUser = people[0] || ("max.mustermann@" + dom);
+  return `<div class="card">
+    <div class="preview-bar">
+      <b>Vorschau</b>
+      <div class="seg"><button data-pk="new" class="${view.previewKind === "new" ? "active" : ""}">Neue Mail</button><button data-pk="reply" class="${view.previewKind === "reply" ? "active" : ""}">Antwort</button><button data-pk="text" class="${view.previewKind === "text" ? "active" : ""}">Nur-Text</button></div>
+      <div class="spacer"></div>
+      ${people.length > 1 ? `<select class="input" id="sample" style="width:auto;height:30px;font-size:13px">${people.map(p => `<option ${p === view.sampleUser ? "selected" : ""}>${esc(p)}</option>`).join("")}</select>` : `<span class="hint">${esc(view.sampleUser)}</span>`}
+    </div>
+    <div id="previewBox"></div>
+  </div>`;
+}
+
+function updatePreview(level) {
+  const box = $("#previewBox"); if (!box) return;
+  const addr = view.sampleUser, domain = addr.split("@")[1];
+  const vars = buildVars(addr, domain);
+  const kind = view.previewKind === "reply" ? "reply" : (view.previewKind === "text" ? view.kind : "new");
+  const r = resolve(addr, domain, kind);
+  let sigHtml = "", sigTxt = "", none = false;
+  if (r) {
+    const h = r.html != null && r.html.trim() !== "" ? r.html : null, t = r.txt != null && r.txt.trim() !== "" ? r.txt : null;
+    if (!h && !t) none = true;
+    sigHtml = h ? render(h, vars, true) : (t ? esc(render(t, vars, false)).replace(/\n/g, "<br>\n") : "");
+    sigTxt = t ? render(t, vars, false) : (h ? htmlToText(render(h, vars, true)) : "");
+  }
+  const src = r ? `Quelle: Vorlage „${r.level}“` : "Keine Vorlage";
+  if (view.previewKind === "text") {
+    box.innerHTML = `<pre class="preview-text">${esc("Hallo Frau Beispiel,\n\nvielen Dank für Ihre Nachricht, ich melde mich morgen.\n\n" + (none ? "" : sigTxt + "\n\n") + (kind === "reply" ? "________________________________\nVon: Erika Beispiel <erika@kunde.de>\nGesendet: Montag, 9:41\nBetreff: Angebot\n\nGuten Tag, …" : ""))}</pre>`;
+    return;
+  }
+  const reply = view.previewKind === "reply";
+  const doc = `<!doctype html><html><head><meta charset="utf-8"><style>
+    body{margin:0;font:14px/1.5 -apple-system,"Segoe UI",Calibri,Arial,sans-serif;color:#1f2937;background:#fff}
+    .hdr{padding:14px 18px;border-bottom:1px solid #e5e7eb;background:#fafafa;font-size:13px;color:#4b5563}
+    .hdr b{color:#111827}.subj{font-size:16px;font-weight:600;color:#111827;margin-bottom:6px}
+    .body{padding:18px}.quote{margin-top:18px;color:#6b7280}
+    hr{border:0;border-top:1px solid #d1d5db;margin:18px 0 10px}.src{font:11px sans-serif;color:#9ca3af;padding:6px 18px;border-top:1px dashed #e5e7eb}
+    .marker{outline:2px dashed #93c5fd;outline-offset:6px;border-radius:2px}
+  </style></head><body>
+  <div class="hdr"><div class="subj">${reply ? "AW: Angebot" : "Angebot"}</div>
+    <div><b>Von:</b> ${esc(vars.DisplayName)} &lt;${esc(addr)}&gt;</div><div><b>An:</b> Erika Beispiel &lt;erika@kunde.de&gt;</div></div>
+  <div class="body">
+    <div>Hallo Frau Beispiel,<br><br>vielen Dank für Ihre Nachricht, ich melde mich morgen mit den Details.</div>
+    ${none ? "" : `<div class="marker">${sigHtml}</div>`}
+    ${reply ? `<hr><div class="quote"><b>Von:</b> Erika Beispiel &lt;erika@kunde.de&gt;<br><b>Gesendet:</b> Montag, 9:41<br><b>Betreff:</b> Angebot<br><br>Guten Tag,<br>können Sie uns ein Angebot schicken?<br><br>Viele Grüße<br>Erika Beispiel</div>` : ""}
+  </div>
+  <div class="src">${esc(src)}${none ? " · bei Antworten keine Signatur" : ""} · gestrichelt = eingefügte Signatur</div>
+  </body></html>`;
+  box.innerHTML = `<iframe class="preview" sandbox="" title="Vorschau"></iframe>`;
+  box.firstChild.srcdoc = doc;
+}
+
+function renderVars(level) {
+  const key = level === "default" ? "*" : level;
+  S.config.vars = S.config.vars || {};
+  const vars = S.config.vars[key] || {};
+  const rows = Object.entries(vars);
+  $("#tabBody").innerHTML = `<div class="card card-pad" style="max-width:820px">
+    <h3>${level === "default" ? "Globale Firmendaten" : "Firmendaten für " + esc(level)}</h3>
+    <p class="sub">${level === "default" ? "Werte, die in allen Signaturen als Platzhalter verfügbar sind, z. B. <code>{{Company}}</code>." : "Überschreiben die globalen Werte für diese Domain. Leere Felder werden ignoriert."}</p>
+    <div id="kvRows">${rows.map(([k, v], i) => kvRow(k, v, i)).join("")}</div>
+    <button class="btn sm" data-act="kvAdd">+ Feld hinzufügen</button>
+    ${level !== "default" ? `<div class="hint" style="margin-top:14px">Geerbt (global): ${Object.entries(S.config.vars["*"] || {}).map(([k, v]) => `<code>${esc(k)}</code>=${esc(v)}`).join(" · ") || "–"}</div>` : ""}
+  </div>`;
+}
+const kvRow = (k, v, i) => `<div class="kv" data-i="${i}"><input class="input mono" data-kv="k" value="${esc(k)}" placeholder="Feldname"><input class="input" data-kv="v" value="${esc(v)}" placeholder="Wert"><button class="icon-btn" data-act="kvDel" title="Entfernen">${ICON.trash}</button></div>`;
+function collectVars(level) {
+  const key = level === "default" ? "*" : level, obj = {};
+  document.querySelectorAll("#kvRows .kv").forEach(r => {
+    const k = $('[data-kv="k"]', r).value.trim(), v = $('[data-kv="v"]', r).value;
+    if (/^\w+$/.test(k)) obj[k] = v;
+  });
+  S.config.vars[key] = obj; markDirty("config");
+}
+
+function renderUsers(domain) {
+  const list = usersOf(domain);
+  $("#tabBody").innerHTML = `<div class="card">
+    <div class="editor-bar">
+      <form id="addUser" style="display:flex;gap:6px;flex:1;min-width:260px"><input class="input" id="newUser" placeholder="vorname.nachname" style="height:32px;max-width:260px"><span style="align-self:center;color:var(--text-3)">@${esc(domain)}</span><button class="btn sm">Person hinzufügen</button></form>
+      ${S.sync_available ? `<button class="btn sm" data-act="sync">Aus mailcow übernehmen</button>` : `<span class="hint" title="MAILCOW_URL und MAILCOW_API_KEY setzen">mailcow-Abgleich nicht konfiguriert</span>`}
+    </div>
+    ${list.length ? `<div style="overflow-x:auto"><table class="grid"><thead><tr><th>Adresse</th>${STD_FIELDS.map(f => `<th>${f}</th>`).join("")}<th>Signatur</th><th></th></tr></thead><tbody>
+      ${list.map(a => userRow(a)).join("")}
+    </tbody></table></div>` : `<div class="empty"><h3>Noch keine Personen</h3><p>Ohne Eintrag wird der Anzeigename aus der Mail verwendet. Lege Personen an, um Position, Telefon usw. zu pflegen.</p></div>`}
+  </div>`;
+}
+function userRow(a) {
+  const u = S.users[a] || {};
+  const extra = Object.keys(u).filter(k => !STD_FIELDS.includes(k) && k !== "DisplayNameLocked");
+  let h = `<tr data-user="${esc(a)}"><td class="mono">${esc(a.split("@")[0])}</td>
+    ${STD_FIELDS.map(f => `<td><input class="input" data-uf="${f}" value="${esc(u[f] || "")}"></td>`).join("")}
+    <td>${hasOwn(a) ? `<button class="badge" data-act="openUserSig" style="border:0;cursor:pointer">eigene</button>` : `<span class="badge gray">Domain</span>`}</td>
+    <td style="white-space:nowrap"><button class="icon-btn neutral" data-act="expand" title="Weitere Felder">${ICON.more}</button><button class="icon-btn" data-act="delUser" title="Entfernen">${ICON.trash}</button></td></tr>`;
+  if (view.expanded === a) {
+    h += `<tr class="expand" data-user="${esc(a)}"><td colspan="${STD_FIELDS.length + 3}">
+      <div style="max-width:760px;padding:6px 0">
+        <b>Weitere Felder</b> <span class="hint">z. B. Fax, Raum, LinkedIn – in der Vorlage als <code>{{Feldname}}</code></span>
+        <div id="kvRows" style="margin-top:10px">${extra.map((k, i) => kvRow(k, u[k], i)).join("")}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+          <button class="btn sm" data-act="kvAdd">+ Feld</button>
+          <label class="radio" style="padding:4px 10px"><input type="checkbox" data-act="lockName" ${u.DisplayNameLocked ? "checked" : ""}> Namen nicht aus mailcow überschreiben</label>
+          ${hasOwn(a) ? `<button class="btn sm" data-act="openUserSig">Persönliche Signatur bearbeiten</button>` : `<button class="btn sm" data-act="createUserSig">Persönliche Signatur anlegen</button>`}
+        </div>
+      </div></td></tr>`;
+  }
+  return h;
+}
+function collectUserExtra(a) {
+  const u = S.users[a] = S.users[a] || {};
+  Object.keys(u).forEach(k => { if (!STD_FIELDS.includes(k) && k !== "DisplayNameLocked") delete u[k]; });
+  document.querySelectorAll("#kvRows .kv").forEach(r => {
+    const k = $('[data-kv="k"]', r).value.trim(), v = $('[data-kv="v"]', r).value;
+    if (/^\w+$/.test(k) && v !== "") u[k] = v;
+  });
+  markDirty("users");
+}
+
+function renderSettings() {
+  const c = S.config;
+  const sw = (key, title, text, def) => `<div class="toggle-row"><label class="switch"><input type="checkbox" data-cfg="${key}" ${(c[key] ?? def) ? "checked" : ""}><i></i></label><div class="txt"><b>${title}</b><span>${text}</span></div></div>`;
+  const list = (key, title, text) => `<label class="field"><span>${title}</span><textarea class="input mono" rows="4" data-cfglist="${key}">${esc((c[key] || []).join("\n"))}</textarea><div class="hint">${text}</div></label>`;
+  $("#main").innerHTML = `
+    <div class="page-head"><div><h2>Einstellungen</h2><p>Gilt für alle Domains. Änderungen greifen nach spätestens einer Minute, ohne Neustart.</p></div></div>
+    <div class="settings-grid">
+      <div class="card card-pad"><h3>Verhalten</h3><p class="sub">Grundlegende Schalter.</p>
+        ${sw("enabled", "Signaturen aktiv", "Hauptschalter für das Plugin.", true)}
+        ${sw("dry_run", "Testmodus (dry run)", "Nichts verändern, nur ins rspamd-Log schreiben, was passieren würde.", false)}
+        ${sw("skip_calendar", "Kalendereinladungen auslassen", "Einladungen und Zusagen bleiben unverändert (empfohlen).", true)}
+        ${sw("require_auth", "Nur angemeldete Absender", "Signatur nur für per SMTP-AUTH/SOGo angemeldete Benutzer bzw. aus vertrauenswürdigen Netzen.", true)}
+        ${sw("skip_internal", "Interne Mails auslassen", "Keine Signatur, wenn alle Empfänger in den internen Domains liegen.", false)}
+      </div>
+      <div class="card card-pad"><h3>Listen</h3><p class="sub">Ein Eintrag pro Zeile.</p>
+        ${list("exclude_senders", "Ausgenommene Absender", "Diese Adressen bekommen nie eine Signatur, z. B. noreply@…")}
+        ${list("internal_domains", "Interne Domains", "Nur relevant, wenn „Interne Mails auslassen“ aktiv ist.")}
+        ${list("trusted_networks", "Vertrauenswürdige Netze", "Mails ohne Anmeldung aus diesen Netzen werden ebenfalls signiert (mailcow-intern: 172.22.1.0/24).")}
+      </div>
+    </div>
+    <div class="card card-pad" style="margin-top:20px"><h3>Hinweis</h3><p class="sub" style="margin:0">Die Signatur wird nur für Domains eingefügt, die links unter „Domains“ stehen. Für diese Domains den „Domain wide footer“ in mailcow leer lassen, sonst kommen zwei Signaturen. Verschlüsselte und signierte Mails (S/MIME, PGP) werden nie verändert.</p></div>`;
+}
+
+// ------------------------------------------------------------------ Events
+document.addEventListener("click", async e => {
+  const el = e.target.closest("[data-nav],[data-tab],[data-kind],[data-fmt],[data-pk],[data-act],[data-ins]");
+  if (!el) return;
+  if (el.dataset.nav) { e.preventDefault(); view.kind = "new"; view.fmt = "html"; view.previewKind = "new"; view.page = el.dataset.nav; view.level = el.dataset.level || view.level; view.tab = "sig"; view.expanded = ""; return renderMain(); }
+  if (el.dataset.tab) { view.tab = el.dataset.tab; return renderMain(); }
+  if (el.dataset.kind) { view.kind = el.dataset.kind; view.previewKind = el.dataset.kind; return renderMain(); }
+  if (el.dataset.fmt) { view.fmt = el.dataset.fmt; if (view.fmt === "text") view.previewKind = "text"; else if (view.previewKind === "text") view.previewKind = view.kind; return renderMain(); }
+  if (el.dataset.pk) { view.previewKind = el.dataset.pk; document.querySelectorAll("[data-pk]").forEach(b => b.classList.toggle("active", b === el)); return updatePreview(view.level); }
+  if (el.dataset.ins) return insertPlaceholder(el.dataset.ins);
+  const act = el.dataset.act, lvl = view.level;
+  const row = el.closest("[data-user]"), addr = row && row.dataset.user;
+  if (act === "createOwn" || act === "createUserSig") {
+    const target = act === "createUserSig" ? addr : lvl;
+    S.templates[target] = Object.assign({}, S.templates.default || { "new.html": "", "new.txt": null, "reply.html": null, "reply.txt": null });
+    markDirty("tpl", target);
+    if (act === "createUserSig") { view.level = target; view.tab = "sig"; }
+    return renderMain();
+  }
+  if (act === "openUserSig") { view.level = addr; view.tab = "sig"; return renderMain(); }
+  if (act === "dropOwn") {
+    if (!confirm("Eigene Signatur löschen? Danach gilt wieder die übergeordnete Signatur.")) return;
+    delete S.templates[lvl]; dirty.tpl.delete(lvl); dirty.del.add(lvl); updateDirty(); return renderMain();
+  }
+  if (act === "removeDomain") {
+    if (!confirm(`Domain ${lvl} entfernen? Signatur und Firmendaten dieser Domain werden gelöscht, Personen bleiben erhalten.`)) return;
+    S.config.domains = (S.config.domains || []).filter(d => d !== lvl);
+    if (S.config.vars) delete S.config.vars[lvl];
+    if (S.templates[lvl]) { delete S.templates[lvl]; dirty.del.add(lvl); dirty.tpl.delete(lvl); }
+    markDirty("config"); view.level = "default"; return renderMain();
+  }
+  if (act === "kvAdd") {
+    const box = $("#kvRows"); box.insertAdjacentHTML("beforeend", kvRow("", "", box.children.length));
+    return box.lastElementChild.querySelector("input").focus();
+  }
+  if (act === "kvDel") { el.closest(".kv").remove(); return view.tab === "users" ? collectUserExtra(view.expanded) : collectVars(lvl); }
+  if (act === "expand") { view.expanded = view.expanded === addr ? "" : addr; return renderUsers(lvl); }
+  if (act === "delUser") {
+    if (!confirm(`${addr} aus der Liste entfernen?`)) return;
+    delete S.users[addr]; markDirty("users"); return renderUsers(lvl);
+  }
+  if (act === "lockName") { S.users[addr].DisplayNameLocked = el.checked || undefined; if (!el.checked) delete S.users[addr].DisplayNameLocked; return markDirty("users"); }
+  if (act === "sync") {
+    if (isDirty()) return toast("Bitte erst speichern.", true);
+    try { const r = await api("POST", "/api/sync"); toast(`${r.mailboxes} Postfächer · ${r.added} neu · ${r.updated} Namen aktualisiert`); await load(); }
+    catch (err) { toast(err.message, true); }
+  }
+});
+
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.name === "rm") {
+    const tp = S.templates[view.level];
+    if (t.value === "same") { tp["reply.html"] = null; tp["reply.txt"] = null; }
+    if (t.value === "none") { tp["reply.html"] = ""; tp["reply.txt"] = ""; }
+    if (t.value === "own") { tp["reply.html"] = tp["new.html"] || ""; tp["reply.txt"] = tp["new.txt"]; }
+    markDirty("tpl", view.level); return renderMain();
+  }
+  if (t.id === "autoText") {
+    const f = view.kind + ".txt", tp = S.templates[view.level];
+    tp[f] = t.checked ? null : htmlToText(tp[view.kind + ".html"] || "");
+    markDirty("tpl", view.level); return renderMain();
+  }
+  if (t.id === "sample") { view.sampleUser = t.value; return updatePreview(view.level); }
+  if (t.dataset.cfg) { S.config[t.dataset.cfg] = t.checked; markDirty("config"); return updateStatus(); }
+});
+
+document.addEventListener("input", e => {
+  const t = e.target;
+  if (t.id === "code") {
+    S.templates[view.level][`${view.kind}.${view.fmt === "html" ? "html" : "txt"}`] = t.value;
+    markDirty("tpl", view.level);
+    clearTimeout(updatePreview.t); updatePreview.t = setTimeout(() => updatePreview(view.level), 150);
+    return;
+  }
+  if (t.dataset.kv) return view.tab === "users" ? collectUserExtra(view.expanded) : collectVars(view.level);
+  if (t.dataset.uf) {
+    const a = t.closest("[data-user]").dataset.user;
+    S.users[a] = S.users[a] || {};
+    if (t.value === "") delete S.users[a][t.dataset.uf]; else S.users[a][t.dataset.uf] = t.value;
+    return markDirty("users");
+  }
+  if (t.dataset.cfglist) {
+    S.config[t.dataset.cfglist] = t.value.split(/\n/).map(x => x.trim()).filter(Boolean);
+    return markDirty("config");
+  }
+});
+
+document.addEventListener("submit", e => {
+  e.preventDefault();
+  if (e.target.id === "loginForm") return login();
+  if (e.target.id === "addDomain") {
+    const d = $("#newDomain").value.trim().toLowerCase();
+    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(d)) return toast("Bitte eine gültige Domain eingeben, z. B. firma.de", true);
+    S.config.domains = [...new Set([...(S.config.domains || []), d])].sort();
+    markDirty("config"); view.page = "level"; view.level = d; view.tab = "sig"; return renderMain();
+  }
+  if (e.target.id === "addUser") {
+    const local = $("#newUser").value.trim().toLowerCase();
+    if (!/^[a-z0-9._%+-]+$/.test(local)) return toast("Bitte nur den Teil vor dem @ eingeben.", true);
+    const a = local + "@" + view.level;
+    S.users[a] = S.users[a] || {}; markDirty("users"); view.expanded = ""; return renderUsers(view.level);
+  }
+});
+
+function insertPlaceholder(k) {
+  const ta = $("#code"); if (!ta || ta.disabled) return;
+  const s = ta.selectionStart, en = ta.selectionEnd, sel = ta.value.slice(s, en);
+  const ins = sel ? `{{#${k}}}${sel}{{/${k}}}` : `{{${k}}}`;
+  ta.setRangeText(ins, s, en, "end"); ta.focus();
+  ta.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+$("#saveBtn").addEventListener("click", save);
+document.addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); if (isDirty()) save(); } });
+window.addEventListener("beforeunload", e => { if (S && isDirty()) { e.preventDefault(); e.returnValue = ""; } });
+$("#logoutBtn").addEventListener("click", async () => { await api("POST", "/api/logout").catch(() => {}); showLogin(); });
+
+async function save() {
+  const btn = $("#saveBtn"); btn.disabled = true; btn.textContent = "Speichert…";
+  try {
+    if (dirty.config) { await api("PUT", "/api/config", S.config); dirty.config = false; }
+    if (dirty.users) { await api("PUT", "/api/users", S.users); dirty.users = false; }
+    for (const l of [...dirty.del]) { await api("DELETE", "/api/templates/" + encodeURIComponent(l)); dirty.del.delete(l); }
+    for (const l of [...dirty.tpl]) { if (S.templates[l]) await api("PUT", "/api/templates/" + encodeURIComponent(l), S.templates[l]); dirty.tpl.delete(l); }
+    toast("Gespeichert – aktiv in spätestens 60 Sekunden");
+  } catch (err) { toast("Fehler: " + err.message, true); }
+  btn.textContent = "Speichern"; updateDirty();
+}
+
+// ------------------------------------------------------------------ Start
+function showLogin() { $("#app").classList.add("hidden"); $("#login").classList.remove("hidden"); $("#pw").value = ""; $("#pw").focus(); }
+async function login() {
+  $("#loginErr").textContent = "";
+  try { await api("POST", "/api/login", { password: $("#pw").value }); await load(); }
+  catch (err) { $("#loginErr").textContent = err.message; }
+}
+async function load() {
+  S = await api("GET", "/api/state");
+  S.config = S.config || {}; S.users = S.users || {}; S.templates = S.templates || {};
+  dirty = { config: false, users: false, tpl: new Set(), del: new Set() };
+  $("#login").classList.add("hidden"); $("#app").classList.remove("hidden");
+  updateStatus(); updateDirty(); renderMain();
+}
+fetch("/api/session").then(r => r.json()).then(s => s.authenticated ? load() : showLogin()).catch(showLogin);
+</script>
+</body>
+</html>

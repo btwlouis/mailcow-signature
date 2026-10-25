@@ -1,0 +1,30 @@
+{
+  "enabled": true,
+  "dry_run": false,
+
+  "domains": ["example.com"],
+
+  "require_auth": true,
+  "trusted_networks": ["172.22.1.0/24", "fd4d:6169:6c63:6f77::/64"],
+
+  "exclude_senders": ["noreply@example.com"],
+
+  "skip_internal": false,
+  "internal_domains": ["example.com"],
+
+  "skip_calendar": true,
+  "max_size": 31457280,
+  "cache_ttl": 60,
+
+  "vars": {
+    "*": {
+      "Company": "Beispiel GmbH",
+      "Street": "Musterstraße 1",
+      "City": "12345 Musterstadt",
+      "Phone": "+49 30 123456-0",
+      "Website": "www.example.com",
+      "Legal": "Geschäftsführer: Max Mustermann · Amtsgericht Musterstadt HRB 12345"
+    },
+    "example.com": {}
+  }
+}

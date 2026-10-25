@@ -1,0 +1,10 @@
+Mit freundlichen Grüßen
+{{DisplayName}}
+{{#Title}}{{Title}}
+{{/Title}}
+{{Company}}
+{{Street}} · {{City}}
+Tel. {{Phone}}{{#Mobile}} · Mobil {{Mobile}}{{/Mobile}}
+{{Email}} · {{Website}}
+
+{{Legal}}
