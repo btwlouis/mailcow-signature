@@ -26,6 +26,11 @@ from http import cookies
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DIST = os.path.join(HERE, "dist")
+try:
+    with open(os.path.join(HERE, "VERSION"), encoding="utf-8") as _f:
+        VERSION = _f.read().strip()
+except OSError:
+    VERSION = "dev"
 STATIC_TYPES = {"js": "text/javascript; charset=utf-8", "css": "text/css; charset=utf-8", "svg": "image/svg+xml",
                 "png": "image/png", "woff2": "font/woff2"}
 TEMPLATE_FILES = ("new.html", "new.txt", "reply.html", "reply.txt", "design.json")
@@ -395,6 +400,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "sync_available": bool(os.environ.get("MAILCOW_URL") and os.environ.get("MAILCOW_API_KEY")),
                 "assets": list_assets(),
                 "asset_url": ASSET_URL,
+                "version": VERSION,
             })
         if self.path.startswith("/assets/"):
             # Vorschau im VPN, auch wenn die oeffentliche Adresse (noch) nicht erreichbar ist

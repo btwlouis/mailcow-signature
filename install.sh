@@ -199,6 +199,7 @@ install_ui() {
   # Logos: von mailcows nginx öffentlich ausgeliefert unter https://<host>/sig-assets/
   mkdir -p data/web/sig-assets && chmod 0755 data/web/sig-assets
   install -m 0644 "$SRC/data/signature-ui/app.py" data/signature-ui/app.py
+  install -m 0644 "$SRC/data/signature-ui/VERSION" data/signature-ui/VERSION
   # gebaute React-Oberfläche (webui/ -> data/signature-ui/dist)
   rm -rf data/signature-ui/dist data/signature-ui/index.html
   cp -r "$SRC/data/signature-ui/dist" data/signature-ui/dist

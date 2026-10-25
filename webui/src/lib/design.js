@@ -1,28 +1,39 @@
 import { esc } from "./template.js";
+import { translate } from "./i18n.js";
 
 // E-Mail-taugliches HTML: Tabellen, Inline-Styles, keine Hintergrundfarben (damit Clients im
 // Darkmode nur die Schrift umrechnen), Logo mit fester Breite.
 
 export const DEFAULT_DESIGN = {
-  layout: "classic", font: "Arial, Helvetica, sans-serif", size: 13, text: "#333333", accent: "#0F688D",
+  lang: "de", layout: "classic", font: "Arial, Helvetica, sans-serif", size: 13, text: "#333333", accent: "#0F688D",
   greeting: "Mit freundlichen Grüßen", divider: true, extra: "", reply: "compact",
   logo: { url: "", width: 120, alt: "", dark: "", protect: "" },
   fields: { title: true, department: false, company: true, address: true, phone: true, mobile: true, email: true, website: true, legal: true },
 };
 
-export const LAYOUTS = [["classic", "Klassisch"], ["stacked", "Logo oben"], ["modern", "Modern"], ["compact", "Kompakt"], ["minimal", "Minimal"]];
+export const LAYOUT_IDS = ["classic", "stacked", "modern", "compact", "minimal"];
 
-// 0815-Vorlagen für „Neue Signatur“
-export const PRESETS = [
-  { name: "Klassisch", design: { layout: "classic", accent: "#0F688D" } },
-  { name: "Logo oben", design: { layout: "stacked", accent: "#2a6f97", divider: false } },
-  { name: "Modern", design: { layout: "modern", accent: "#c0392b", font: "'Segoe UI', Arial, sans-serif" } },
-  { name: "Kompakt", design: { layout: "compact", accent: "#2f855a", greeting: "Viele Grüße" } },
-  { name: "Minimal", design: { layout: "minimal", accent: "#333333", divider: false, font: "Georgia, 'Times New Roman', serif" } },
-];
+// Texte in der Signatur selbst (unabhängig von der Sprache der Oberfläche)
+const SIG_TEXT = {
+  de: { greeting: "Mit freundlichen Grüßen", short: "Viele Grüße", tel: "Tel.", mob: "Mobil" },
+  en: { greeting: "Best regards", short: "Cheers", tel: "Phone", mob: "Mobile" },
+};
+const sigText = (d) => SIG_TEXT[d.lang] || SIG_TEXT.de;
 
-export const FIELD_LABELS = [["title", "Position"], ["department", "Abteilung"], ["company", "Firma"], ["address", "Adresse"],
-  ["phone", "Telefon"], ["mobile", "Mobil"], ["email", "E-Mail"], ["website", "Website"], ["legal", "Pflichtangaben"]];
+// 0815-Vorlagen für „Neue Signatur“ in der Sprache der Oberfläche
+export function presetList(lang) {
+  const g = SIG_TEXT[lang] || SIG_TEXT.de;
+  const base = { lang, greeting: g.greeting };
+  return [
+    { id: "classic", design: { ...base, layout: "classic", accent: "#0F688D" } },
+    { id: "stacked", design: { ...base, layout: "stacked", accent: "#2a6f97", divider: false } },
+    { id: "modern", design: { ...base, layout: "modern", accent: "#c0392b", font: "'Segoe UI', Arial, sans-serif" } },
+    { id: "compact", design: { ...base, layout: "compact", accent: "#2f855a", greeting: g.short } },
+    { id: "minimal", design: { ...base, layout: "minimal", accent: "#333333", divider: false, font: "Georgia, 'Times New Roman', serif" } },
+  ].map((p) => ({ ...p, name: translate(lang, "layout." + p.id) }));
+}
+
+export const FIELD_IDS = ["title", "department", "company", "address", "phone", "mobile", "email", "website", "legal"];
 
 export const FONTS = [["Arial, Helvetica, sans-serif", "Arial"], ["Verdana, Geneva, sans-serif", "Verdana"], ["Tahoma, Geneva, sans-serif", "Tahoma"],
   ["'Segoe UI', Arial, sans-serif", "Segoe UI"], ["'Trebuchet MS', Arial, sans-serif", "Trebuchet MS"], ["Georgia, 'Times New Roman', serif", "Georgia"]];
@@ -72,7 +83,7 @@ function parts(d) {
   const small = `font-family:${F};font-size:${Math.max(10, S0 - 3)}px;line-height:1.4;color:#888888;`;
   const link = (href, label, color = A) => `<a href="${href}" style="color:${color};text-decoration:none;">${label}</a>`;
   return {
-    A, T, M, S0, F, f, font, small, link,
+    A, T, M, S0, F, f, font, small, link, L: sigText(d),
     tbl: (inner, extra = "") => `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;margin-top:16px;${font}${extra}">\n${inner}\n</table>`,
     title: f.title ? `{{#Title}}<br><span style="color:${M};">{{Title}}</span>{{/Title}}` : "",
     dept: f.department ? `{{#Department}}<br><span style="color:${M};">{{Department}}</span>{{/Department}}` : "",
@@ -96,7 +107,7 @@ function contactLines(p, sepMode) {
       (f.website ? `{{#Website}}${link("https://{{Website}}", "{{Website}}")}${f.email ? sep : ""}{{/Website}}` : "") +
       (f.email ? link("mailto:{{Email}}", "{{Email}}") : "");
   }
-  return (f.phone ? "{{#Phone}}Tel. {{Phone}}<br>{{/Phone}}" : "") + (f.mobile ? "{{#Mobile}}Mobil {{Mobile}}<br>{{/Mobile}}" : "") +
+  return (f.phone ? `{{#Phone}}${p.L.tel} {{Phone}}<br>{{/Phone}}` : "") + (f.mobile ? `{{#Mobile}}${p.L.mob} {{Mobile}}<br>{{/Mobile}}` : "") +
     (f.email ? `{{#Email}}${link("mailto:{{Email}}", "{{Email}}")}<br>{{/Email}}` : "") +
     (f.website ? `{{#Website}}${link("https://{{Website}}", "{{Website}}")}{{/Website}}` : "");
 }
@@ -109,7 +120,7 @@ export function genHtml(d, compact) {
   if (compact) {
     return tbl(`  <tr><td style="${font}">
     <strong style="color:${T};">{{DisplayName}}</strong>${f.title ? `{{#Title}} &middot; <span style="color:${M};">{{Title}}</span>{{/Title}}` : ""}<br>
-    <span style="font-size:${S0 - 1}px;color:${M};">${f.company ? "{{#Company}}{{Company}}{{/Company}}" : ""}${f.phone ? "{{#Phone}} &middot; Tel. {{Phone}}{{/Phone}}" : ""}</span>
+    <span style="font-size:${S0 - 1}px;color:${M};">${f.company ? "{{#Company}}{{Company}}{{/Company}}" : ""}${f.phone ? `{{#Phone}} &middot; ${p.L.tel} {{Phone}}{{/Phone}}` : ""}</span>
   </td></tr>`);
   }
 
@@ -163,14 +174,14 @@ export function genHtml(d, compact) {
 
 export function genText(d, compact) {
   d = normalizeDesign(d);
-  const f = d.fields;
+  const f = d.fields, L = sigText(d);
   if (compact)
     return "{{DisplayName}}" + (f.title ? "{{#Title}} · {{Title}}{{/Title}}" : "") + "\n" +
-      (f.company ? "{{#Company}}{{Company}}{{/Company}}" : "") + (f.phone ? "{{#Phone}} · Tel. {{Phone}}{{/Phone}}" : "") + "\n";
+      (f.company ? "{{#Company}}{{Company}}{{/Company}}" : "") + (f.phone ? `{{#Phone}} · ${L.tel} {{Phone}}{{/Phone}}` : "") + "\n";
   let t = d.greeting ? d.greeting + "\n" : "";
   t += "{{DisplayName}}\n" + (f.title ? "{{#Title}}{{Title}}\n{{/Title}}" : "") + (f.department ? "{{#Department}}{{Department}}\n{{/Department}}" : "") + "\n";
   t += (f.company ? "{{#Company}}{{Company}}\n{{/Company}}" : "") + (f.address ? "{{#Street}}{{Street}}\n{{/Street}}{{#City}}{{City}}\n{{/City}}" : "");
-  t += (f.phone ? "{{#Phone}}Tel. {{Phone}}\n{{/Phone}}" : "") + (f.mobile ? "{{#Mobile}}Mobil {{Mobile}}\n{{/Mobile}}" : "") +
+  t += (f.phone ? `{{#Phone}}${L.tel} {{Phone}}\n{{/Phone}}` : "") + (f.mobile ? `{{#Mobile}}${L.mob} {{Mobile}}\n{{/Mobile}}` : "") +
     (f.email ? "{{#Email}}{{Email}}\n{{/Email}}" : "") + (f.website ? "{{#Website}}{{Website}}\n{{/Website}}" : "");
   if (f.legal) t += "{{#Legal}}\n{{Legal}}\n{{/Legal}}";
   if (d.extra) t += "\n" + d.extra + "\n";

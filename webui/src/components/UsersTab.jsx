@@ -5,10 +5,10 @@ import { Card, Icon } from "./ui.jsx";
 import { KvEditor } from "./VarsTab.jsx";
 import { SignatureSelect } from "./DomainPage.jsx";
 
-const LABELS = { DisplayName: "Name", Title: "Position", Department: "Abteilung", Phone: "Telefon", Mobile: "Mobil" };
+const LABELS = { DisplayName: "u.name", Title: "field.title", Department: "field.department", Phone: "field.phone", Mobile: "field.mobile" };
 
 export default function UsersTab({ domain }) {
-  const { S, mutate, notify } = useStore();
+  const { S, mutate, notify, t } = useStore();
   const [local, setLocal] = useState("");
   const [open, setOpen] = useState("");
   const list = usersOf(S, domain);
@@ -16,7 +16,7 @@ export default function UsersTab({ domain }) {
   const add = (e) => {
     e.preventDefault();
     const l = local.trim().toLowerCase();
-    if (!/^[a-z0-9._%+-]+$/.test(l)) return notify("Nur den Teil vor dem @ eingeben", true);
+    if (!/^[a-z0-9._%+-]+$/.test(l)) return notify(t("u.invalid"), true);
     mutate((n) => { n.users[l + "@" + domain] ||= {}; }, { users: true });
     setLocal("");
   };
@@ -28,17 +28,17 @@ export default function UsersTab({ domain }) {
   return (
     <Card bodyClass="" title={
       <form onSubmit={add} className="flex items-center gap-2 font-normal">
-        <input className="form-control h-[28px] w-44" placeholder="vorname.nachname" value={local} onChange={(e) => setLocal(e.target.value)} />
+        <input className="form-control h-[28px] w-44" placeholder={t("u.ph")} value={local} onChange={(e) => setLocal(e.target.value)} />
         <span className="muted">@{domain}</span>
-        <button className="btn btn-sm btn-primary"><Icon name="plus" /> Person</button>
+        <button className="btn btn-sm btn-primary"><Icon name="plus" /> {t("u.add")}</button>
       </form>
     }>
       {list.length === 0 ? (
-        <div className="card-body muted">Keine Personen – ohne Eintrag wird der Name aus der Mail verwendet.</div>
+        <div className="card-body muted">{t("u.none")}</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full table-mc">
-            <thead><tr><th>Adresse</th>{STD_FIELDS.map((f) => <th key={f}>{LABELS[f]}</th>)}<th>Signatur</th><th /></tr></thead>
+            <thead><tr><th>{t("u.address")}</th>{STD_FIELDS.map((f) => <th key={f}>{t(LABELS[f])}</th>)}<th>{t("u.signature")}</th><th /></tr></thead>
             <tbody>
               {list.map((a) => {
                 const u = S.users[a] || {};
@@ -52,9 +52,9 @@ export default function UsersTab({ domain }) {
                       ))}
                       <td><SignatureSelect level={a} compact /></td>
                       <td className="whitespace-nowrap">
-                        <button className="btn btn-sm btn-default px-2" title="Weitere Felder" onClick={() => setOpen(open === a ? "" : a)}><Icon name="more" /></button>{" "}
-                        <button className="btn btn-sm btn-default px-2" title="Entfernen" onClick={() => {
-                          if (confirm(`${a} entfernen?`)) mutate((n) => { delete n.users[a]; }, { users: true });
+                        <button className="btn btn-sm btn-default px-2" title={t("u.more")} onClick={() => setOpen(open === a ? "" : a)}><Icon name="more" /></button>{" "}
+                        <button className="btn btn-sm btn-default px-2" title={t("remove")} onClick={() => {
+                          if (confirm(t("u.confirmRemove", { a }))) mutate((n) => { delete n.users[a]; }, { users: true });
                         }}><Icon name="trash" /></button>
                       </td>
                     </tr>
@@ -70,7 +70,7 @@ export default function UsersTab({ domain }) {
                               <label className="flex items-center gap-2 text-[13px]">
                                 <input type="checkbox" className="accent-mc-primary" checked={!!u.DisplayNameLocked}
                                   onChange={(e) => setField(a, "DisplayNameLocked", e.target.checked ? true : "")} />
-                                Namen nicht aus mailcow überschreiben
+                                {t("u.lock")}
                               </label>
                             </div>
                           </div>

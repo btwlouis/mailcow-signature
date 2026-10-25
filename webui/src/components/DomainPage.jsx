@@ -10,11 +10,11 @@ import { Card, Icon, Tabs } from "./ui.jsx";
 
 // Auswahl, welche Signatur für eine Ebene (default, Domain, Person) gilt
 export function SignatureSelect({ level, compact }) {
-  const { S, mutate } = useStore();
+  const { S, mutate, t } = useStore();
   const current = (S.config.signatures || {})[level] || "";
   const manual = !current && S.templates[level] && !sigOf(S.templates[level]) &&
     (S.templates[level]["new.html"] != null || S.templates[level]["new.txt"] != null);
-  const inherit = level === "default" ? "Keine" : level.includes("@") ? "wie Domain" : "Standard verwenden";
+  const inherit = level === "default" ? t("sel.none") : level.includes("@") ? t("sel.domain") : t("sel.default");
   return (
     <select className={"form-control " + (compact ? "h-[30px] min-w-[140px]" : "max-w-sm")} value={manual ? "__manual" : current}
       onChange={(e) => mutate((n) => {
@@ -23,7 +23,7 @@ export function SignatureSelect({ level, compact }) {
         // manuelles HTML verwerfen, wenn wieder geerbt werden soll
         if (!e.target.value && manual) { delete n.templates[level]; n._delete = [...(n._delete || []), level]; }
       }, { config: true })}>
-      {manual && <option value="__manual">Eigenes HTML (manuell)</option>}
+      {manual && <option value="__manual">{t("sel.manual")}</option>}
       <option value="">{inherit}</option>
       {Object.entries(S.library).map(([id, e]) => <option key={id} value={id}>{e.name}</option>)}
     </select>
@@ -31,7 +31,7 @@ export function SignatureSelect({ level, compact }) {
 }
 
 export default function DomainPage() {
-  const { S, mutate, nav, setNav, notify, load, isDirty } = useStore();
+  const { S, mutate, nav, setNav, notify, load, isDirty, t } = useStore();
   const [newDomain, setNewDomain] = useState("");
   const lvl = nav.level && !nav.level.includes("@") ? nav.level : "default";
   const dom = isDomain(lvl);
@@ -40,20 +40,20 @@ export default function DomainPage() {
   const add = (e) => {
     e.preventDefault();
     const d = newDomain.trim().toLowerCase();
-    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(d)) return notify("Ungültige Domain", true);
+    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(d)) return notify(t("dom.invalid"), true);
     mutate((n) => { n.config.domains = [...new Set([...(n.config.domains || []), d])].sort(); }, { config: true });
     setNewDomain(""); go(d);
   };
   const sync = async () => {
-    if (isDirty) return notify("Bitte erst speichern", true);
+    if (isDirty) return notify(t("sync.saveFirst"), true);
     try {
       const r = await api("POST", "/api/sync");
-      notify(`${r.mailboxes} Postfächer · ${r.added} neu · ${(r.domains_added || []).length} neue Domains`);
+      notify(t("sync.result", { m: r.mailboxes, a: r.added, d: (r.domains_added || []).length }));
       await load();
     } catch (e) { notify(e.message, true); }
   };
   const remove = () => {
-    if (!confirm(`Domain ${lvl} entfernen?`)) return;
+    if (!confirm(t("dom.confirmRemove", { d: lvl }))) return;
     mutate((n) => {
       n.config.domains = (n.config.domains || []).filter((d) => d !== lvl);
       if (n.config.vars) delete n.config.vars[lvl];
@@ -74,41 +74,41 @@ export default function DomainPage() {
     );
   };
 
-  const tabs = [["sig", "Signatur"], ["vars", "Platzhalter"]];
-  if (dom) tabs.push(["users", `Personen (${usersOf(S, lvl).length})`]);
-  const tab = tabs.find((t) => t[0] === nav.tab) ? nav.tab : "sig";
+  const tabs = [["sig", t("tab.sig")], ["vars", t("tab.vars")]];
+  if (dom) tabs.push(["users", t("tab.users", { n: usersOf(S, lvl).length })]);
+  const tab = tabs.find((x) => x[0] === nav.tab) ? nav.tab : "sig";
 
   return (
     <div className="grid gap-4 lg:grid-cols-[250px_minmax(0,1fr)]">
       <aside className="space-y-4">
         <div className="card overflow-hidden">
-          <div className="card-header">Domains</div>
-          <Item level="default" icon="star" label="Standard" />
+          <div className="card-header">{t("dom.title")}</div>
+          <Item level="default" icon="star" label={t("default")} />
           {domains(S).map((d) => <Item key={d} level={d} icon="globe" label={d} />)}
           <form onSubmit={add} className="flex gap-2 p-2 border-t border-mc-border dark:border-mc-d-border">
             <input className="form-control h-[28px]" placeholder="domain.de" value={newDomain} onChange={(e) => setNewDomain(e.target.value)} />
-            <button className="btn btn-sm btn-default" title="Domain hinzufügen"><Icon name="plus" /></button>
+            <button className="btn btn-sm btn-default" title={t("dom.add")}><Icon name="plus" /></button>
           </form>
         </div>
-        {S.sync_available && <button className="btn btn-default w-full" onClick={sync}><Icon name="sync" /> Aus mailcow übernehmen</button>}
+        {S.sync_available && <button className="btn btn-default w-full" onClick={sync}><Icon name="sync" /> {t("sync")}</button>}
       </aside>
 
       <main className="min-w-0">
         <div className="flex items-center gap-3 mb-3">
-          <h1 className="text-[20px] font-semibold">{lvl === "default" ? "Standard" : lvl}</h1>
+          <h1 className="text-[20px] font-semibold">{lvl === "default" ? t("default") : lvl}</h1>
           <div className="flex-1" />
-          {dom && <button className="btn btn-sm btn-danger" onClick={remove}><Icon name="trash" /> Entfernen</button>}
+          {dom && <button className="btn btn-sm btn-danger" onClick={remove}><Icon name="trash" /> {t("remove")}</button>}
         </div>
-        <Tabs value={tab} tabs={tabs} onChange={(t) => setNav({ ...nav, page: "domains", level: lvl, tab: t })} />
+        <Tabs value={tab} tabs={tabs} onChange={(x) => setNav({ ...nav, page: "domains", level: lvl, tab: x })} />
         {tab === "sig" && (
           <div className="grid gap-4 xl:grid-cols-2 items-start">
-            <Card title="Signatur">
+            <Card title={t("tab.sig")}>
               <div className="flex flex-wrap items-center gap-2">
                 <SignatureSelect level={lvl} />
-                {sigName(lvl) && <button className="btn btn-sm btn-default" onClick={() => setNav({ page: "sig", id: S.config.signatures[lvl] })}><Icon name="pen" /> Bearbeiten</button>}
+                {sigName(lvl) && <button className="btn btn-sm btn-default" onClick={() => setNav({ page: "sig", id: S.config.signatures[lvl] })}><Icon name="pen" /> {t("edit")}</button>}
               </div>
               {Object.keys(S.library).length === 0 && (
-                <div className="mt-3"><button className="btn btn-sm btn-primary" onClick={() => setNav({ page: "signatures" })}><Icon name="plus" /> Signatur erstellen</button></div>
+                <div className="mt-3"><button className="btn btn-sm btn-primary" onClick={() => setNav({ page: "signatures" })}><Icon name="plus" /> {t("dom.create")}</button></div>
               )}
             </Card>
             <Preview level={lvl} />

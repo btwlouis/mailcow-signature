@@ -7,6 +7,8 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-0F688D" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/mailcow-dockerized-F5D76E?labelColor=555" alt="mailcow-dockerized">
   <img src="https://img.shields.io/badge/rspamd-plugin-148DBC" alt="rspamd plugin">
+  <a href="https://github.com/btwlouis/mailcow-signature/releases/latest"><img src="https://img.shields.io/github/v/release/btwlouis/mailcow-signature?color=28b62c" alt="Latest release"></a>
+  <img src="https://img.shields.io/badge/UI-English%20%7C%20Deutsch-555" alt="English | Deutsch">
 </p>
 
 <p align="center">
@@ -18,6 +20,10 @@
 </p>
 
 ---
+
+<p align="center">
+  <img src="docs/demo.gif" alt="Reply, send, and the signature lands right below the reply – above the quoted thread" width="100%">
+</p>
 
 **mailcow-signature** adds company-wide email signatures to [mailcow](https://mailcow.email), the way Exclaimer or CodeTwo do it for Microsoft 365: **directly below the newest message, above the quoted history**. mailcow's built-in *domain wide footer* always appends to the very end, after the whole thread.
 
@@ -33,6 +39,8 @@
 
 - 🧩 **rspamd plugin**, using the same hook as mailcow's footer. Runs before DKIM/ARC signing, so **DKIM stays valid**.
 - 📬 **Finds the reply position** for Outlook (desktop, OWA, new Outlook, mobile), Gmail, Apple Mail/iOS, Thunderbird, SOGo, Roundcube, Yahoo and Zimbra.
+- 🚀 **Guided first-run setup**: company details, logo and layout in five steps.
+- 🌍 **English and German** interface, switchable at any time. Each signature has its own language too ("Phone" vs. "Tel.").
 - 🎨 **Signature gallery** with five ready-made layouts (Classic, Logo on top, Modern, Compact, Minimal). Customize logo, colors, font and fields with a live preview.
 - 🌗 **Dark-mode aware**: logo analysis, one-click white outline or plate, optional dark mode logo, and a preview that simulates dark mail clients.
 - 🏢 **Per domain and per person**, with placeholders (`{{DisplayName}}`, `{{Title}}`, `{{Phone}}`, …) that disappear when empty.
@@ -44,6 +52,10 @@
 ## Screenshots
 
 <table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/00-onboarding-2.png" alt="First-run setup: company details"><p align="center"><sub><b>First-run setup: company details</b></sub></p></td>
+    <td width="50%"><img src="docs/screenshots/00-onboarding-4.png" alt="First-run setup: choose a layout"><p align="center"><sub><b>First-run setup: choose a layout</b></sub></p></td>
+  </tr>
   <tr>
     <td width="50%"><img src="docs/screenshots/01-signatures.png" alt="Signature gallery"><p align="center"><sub><b>Signature gallery</b></sub></p></td>
     <td width="50%"><img src="docs/screenshots/02-templates.png" alt="Ready-made layouts"><p align="center"><sub><b>Ready-made layouts</b></sub></p></td>
@@ -79,8 +91,8 @@ Then:
    ssh -L 8090:127.0.0.1:8090 root@your-mailcow-host
    ```
    To reach it via VPN or a private network instead, add `--listen <private-ip>` to the installer.
-2. **Create a signature** under *Signaturen*, pick it for your domains under *Domains*, and save.
-3. **Test** with dry run or live testers, then switch dry run off under *Einstellungen*.
+2. **Follow the first-run setup** (company details, logo, layout). It creates a default signature for all domains. More signatures: *Signatures*; assign them per domain under *Domains*.
+3. **Test** with dry run or live testers, then switch dry run off under *Settings*.
 4. **Clear mailcow's domain wide footer** and client-side signatures, otherwise mails get two signatures.
 
 Changes are live within 60 seconds, without a restart.
@@ -88,6 +100,7 @@ Changes are live within 60 seconds, without a restart.
 | Task | Command (append to `curl … \| sudo bash -s --`) |
 |---|---|
 | Update, keeps your config | run the installer again |
+| Install a specific version | `--ref v1.0.0` |
 | Web UI on a VPN/private IP | `--listen 10.1.0.4` |
 | Plugin only, no web UI | `--no-ui` |
 | Uninstall (keeps signatures/config) | `--uninstall` |
@@ -149,7 +162,7 @@ Mail clients recolor text and backgrounds in dark mode, but never images, so a d
 | **White plate** | all clients | logo baked onto a rounded white area |
 | **Dark mode logo** | Apple Mail, Outlook for Mac/iOS, Thunderbird | alternative image via `prefers-color-scheme` |
 
-**Logo mode** (*Einstellungen*): *Linked* keeps mails small, but classic Outlook for Windows asks before loading external images. *Embedded* attaches the logo inline (CID), so it shows immediately everywhere, but mails get a paperclip. SVG uploads are converted to PNG, because Outlook and Gmail don't render SVG.
+**Logo mode** (*Settings*): *Linked* keeps mails small, but classic Outlook for Windows asks before loading external images. *Embedded* attaches the logo inline (CID), so it shows immediately everywhere, but mails get a paperclip. SVG uploads are converted to PNG, because Outlook and Gmail don't render SVG.
 
 ## Testing with dry run
 
@@ -164,7 +177,7 @@ mailcow_signature: dry_run, would insert reply signature for max@example.com
 mailcow_signature: max@example.com unchanged (skip: multipart/signed)
 ```
 
-The same info shows up as the symbol `MAILCOW_SIGNATURE` in the rspamd history (`https://<mailcow-host>/rspamd`). **Live testers** (*Einstellungen*) get the real signature while everyone else stays in dry run.
+The same info shows up as the symbol `MAILCOW_SIGNATURE` in the rspamd history (`https://<mailcow-host>/rspamd`). **Live testers** (*Settings*) get the real signature while everyone else stays in dry run.
 
 ## Limitations
 
@@ -184,7 +197,7 @@ The same info shows up as the symbol `MAILCOW_SIGNATURE` in the rspamd history (
 | `data/signature-ui/` | web UI server (`app.py`, Python stdlib only) and the built React app (`dist/`) |
 | `webui/` | web UI source (React + Tailwind, Vite) |
 | `install.sh` | installer / updater / uninstaller |
-| `tools/sync_users.py` | CLI alternative to the "Aus mailcow übernehmen" button |
+| `tools/sync_users.py` | CLI alternative to the "Import from mailcow" button |
 </details>
 
 <details>
@@ -205,6 +218,10 @@ bash tests/rspamd_integration.sh    # plugin inside a real rspamd container (Doc
 
 GitHub Actions runs all of these on every push, plus shellcheck, ruff, Lua syntax and the web UI build.
 </details>
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) and the [releases](https://github.com/btwlouis/mailcow-signature/releases).
 
 ## License
 
