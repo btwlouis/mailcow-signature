@@ -52,6 +52,19 @@ Changes are picked up within 60 seconds, without a restart.
 | Uninstall (keeps templates/config) | `curl -fsSL https://raw.githubusercontent.com/btwlouis/mailcow-signature/main/install.sh \| sudo bash -s -- --uninstall` |
 | Uninstall everything | `curl -fsSL https://raw.githubusercontent.com/btwlouis/mailcow-signature/main/install.sh \| sudo bash -s -- --uninstall --purge` |
 
+## Testing with dry run
+
+With dry run on, the plugin does everything except modify the mail. Each outgoing mail gets a result:
+
+- **rspamd log** on the mailcow host:
+  ```bash
+  cd /opt/mailcow-dockerized && docker compose logs -f --since 1m rspamd-mailcow | grep mailcow_signature
+  ```
+  You should see lines like `dry_run, would insert reply signature for max@example.com` or `unchanged (skip: multipart/signed)`.
+- **rspamd history** in the mailcow UI (`https://<mailcow-host>/rspamd` → History): symbol `MAILCOW_SIGNATURE` with the same info.
+
+No line at all means the mail was filtered before: the sender domain is not in the domain list, the sender is not authenticated, or it is an auto-reply/bounce.
+
 ## Manual installation
 
 Run these on the mailcow host (`/opt/mailcow-dockerized`).

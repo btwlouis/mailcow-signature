@@ -1048,17 +1048,21 @@ local function process(task)
     vars = vars,
     skip_calendar = cfg.skip_calendar,
   })
+  -- mailcow loggt rspamd im Modus "silent": infox waere unsichtbar, daher warnx.
+  -- Zusaetzlich steht das Ergebnis als Symbol in der rspamd-History (mailcow: /rspamd).
   if not out then
-    rspamd_logger.infox(task, '%s: %s unchanged (%s)', N, addr, info)
+    task:insert_result(SYMBOL, 0.0, info)
+    rspamd_logger.warnx(task, '%s: %s unchanged (%s)', N, addr, info)
     return
   end
   if cfg.dry_run then
-    rspamd_logger.infox(task, '%s: dry_run, would insert %s signature for %s', N, info, addr)
+    task:insert_result(SYMBOL, 0.0, 'dry_run: would insert ' .. info)
+    rspamd_logger.warnx(task, '%s: dry_run, would insert %s signature for %s', N, info, addr)
     return
   end
   task:set_message(out)
-  task:insert_result(SYMBOL, 0.0, info)
-  rspamd_logger.infox(task, '%s: inserted %s signature for %s', N, info, addr)
+  task:insert_result(SYMBOL, 0.0, 'inserted ' .. info)
+  rspamd_logger.warnx(task, '%s: inserted %s signature for %s', N, info, addr)
 end
 
 local id = rspamd_config:register_symbol({
@@ -1081,6 +1085,6 @@ rspamd_config:set_metric_symbol({
   description = 'Server-side signature inserted',
 })
 
-rspamd_logger.infox(rspamd_config, '%s: loaded (symbol id %s)', N, id)
+rspamd_logger.warnx(rspamd_config, '%s: loaded (symbol id %s)', N, id)
 
 return M
