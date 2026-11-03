@@ -35,14 +35,26 @@ VARS = {
 }
 
 
-def apply(msg: bytes, skip_calendar=True):
+def apply_full(msg: bytes, skip_calendar=True, plain_to_html=False, templates=None):
+    templates = templates or TEMPLATES
     opts = lua.table_from({
-        b"get_templates": lambda kind: TEMPLATES[kind.decode()],
+        b"get_templates": lambda kind: templates[kind.decode()],
         b"vars": lua.table_from(VARS),
         b"skip_calendar": skip_calendar,
+        b"plain_to_html": plain_to_html,
+        b"seed": b"abc123",
     })
-    out, info = M.apply(msg, opts)
-    return out, (info.decode() if isinstance(info, bytes) else info)
+    res = M.apply(msg, opts)
+    out, info = res[0], res[1]
+    hdrs = None
+    if len(res) > 2 and res[2] is not None:
+        hdrs = [(res[2][i][1].decode(), res[2][i][2].decode()) for i in range(1, len(res[2]) + 1)]
+    return out, (info.decode() if isinstance(info, bytes) else info), hdrs
+
+
+def apply(msg: bytes, skip_calendar=True):
+    out, info, _ = apply_full(msg, skip_calendar)
+    return out, info
 
 
 def crlf(s: str) -> bytes:
@@ -288,6 +300,88 @@ for raw in samples:
 check("codec roundtrips vs. Python base64/quopri", codec_ok)
 
 # --------------------------------------------------------------------------
+# Nur-Text-Mails (Apple Mail/iOS ohne Formatierung) -> multipart/alternative
+def top_headers(raw: bytes) -> bytes:
+    return raw.split(b"\r\n\r\n", 1)[0]
+
+
+def expected_top(orig: bytes, hdrs) -> bytes:
+    """Was Postfix nach dem Milter-Reply hat: CT/CTE ersetzt, ggf. MIME-Version neu."""
+    lines = top_headers(orig).split(b"\r\n")
+    names = {n.lower() for n, _ in hdrs}
+    kept = [ln for ln in lines if ln.split(b":", 1)[0].decode().lower() not in names]
+    return b"\r\n".join(kept + [("%s: %s" % h).encode() for h in hdrs])
+
+
+def same_headers(a: bytes, b: bytes) -> bool:
+    return sorted(top_headers(a).split(b"\r\n")) == sorted(b.split(b"\r\n"))
+
+
+apple_new = "Hallo Bob,\n\nanbei die Unterlagen.\n"
+msg_ap1 = crlf("From: Max <max@example.com>\nTo: bob@ext.de\nSubject: Unterlagen\n"
+               "Content-Type: text/plain; charset=us-ascii\nContent-Transfer-Encoding: 7bit\n\n" + apple_new)
+out, info, hdrs = apply_full(msg_ap1, plain_to_html=True)
+check("Apple plain new: modified", out is not None, info)
+if out:
+    m, p = parts(out)
+    check("Apple plain new: now multipart/alternative", m.get_content_type() == "multipart/alternative", m.get_content_type())
+    check("Apple plain new: header changes reported",
+          hdrs and [n for n, _ in hdrs] == ["Content-Type", "Content-Transfer-Encoding", "MIME-Version"], hdrs)
+    check("Apple plain new: milter result == rewritten headers", same_headers(out, expected_top(msg_ap1, hdrs)), top_headers(out))
+    check("Apple plain new: html signature", "data-mcsig" in p.get("text/html", "") and "Max M&#252;ller" in p["text/html"], p)
+    check("Apple plain new: html keeps text", p["text/html"].find("anbei die Unterlagen") < p["text/html"].find("data-mcsig"), p["text/html"])
+    check("Apple plain new: plain umlauts not transliterated", "Max Müller" in p["text/plain"] and "anbei" in p["text/plain"], p["text/plain"])
+    check("Apple plain new: no MIME defects", not defects(out), defects(out))
+    signed_plain = p["text/plain"].replace("\r\n", "\n")
+    check("Apple plain new: other headers unchanged", b"Subject: Unterlagen\r\n" in out and b"To: bob@ext.de\r\n" in out)
+
+apple_reply = ("Passt, danke!\n\n> Am 01.01.2026 um 10:00 schrieb Bob <bob@ext.de>:\n> \n"
+               "> Grüße & bis morgen\n> > noch älter\n")
+msg_ap2 = crlf("From: Max <max@example.com>\nSubject: Re: x\nIn-Reply-To: <a@b>\nMIME-Version: 1.0\n"
+               "Content-Type: text/plain; charset=utf-8\nContent-Transfer-Encoding: quoted-printable\n\n" + qp(apple_reply))
+out, info, hdrs = apply_full(msg_ap2, plain_to_html=True)
+check("Apple plain reply: modified as reply", out is not None and info == "reply", info)
+if out:
+    m, p = parts(out)
+    h, t = p["text/html"], p["text/plain"]
+    check("Apple plain reply: html sig before blockquote", h.find("Passt") < h.find("data-mcsig") < h.find('<blockquote type="cite">'), h)
+    check("Apple plain reply: nested quote", h.count('<blockquote type="cite">') == 2, h)
+    check("Apple plain reply: text escaped and umlauts kept", "Grüße &amp; bis morgen" in h, h)
+    check("Apple plain reply: plain sig before quote", t.find("Passt") < t.find("Max Müller") < t.find("> Am 01.01."), t)
+    check("Apple plain reply: MIME-Version not duplicated",
+          out.count(b"MIME-Version") == 1 and [n for n, _ in hdrs] == ["Content-Type", "Content-Transfer-Encoding"], hdrs)
+    check("Apple plain reply: milter result == rewritten headers", same_headers(out, expected_top(msg_ap2, hdrs)), top_headers(out))
+    check("Apple plain reply: no MIME defects", not defects(out), defects(out))
+
+msg_ap3 = crlf("From: max@example.com\nSubject: Neu\nContent-Type: text/plain; charset=UTF-8; format=flowed\n"
+               "Content-Transfer-Encoding: 8bit\n\nEine lange Zeile, \ndie weitergeht.\n Gestopft\n")
+out, info, hdrs = apply_full(msg_ap3, plain_to_html=True)
+if out:
+    m, p = parts(out)
+    check("Plain flowed: soft breaks joined in html", "<div>Eine lange Zeile, die weitergeht.</div>" in p["text/html"], p["text/html"])
+    check("Plain flowed: space-stuffing removed", "<div>Gestopft</div>" in p["text/html"], p["text/html"])
+    check("Plain flowed: top-level cte stays 8bit", ("Content-Transfer-Encoding", "8bit") in hdrs, hdrs)
+    check("Plain flowed: plain part keeps format=flowed", m.get_payload()[0].get_param("format") == "flowed")
+else:
+    check("Plain flowed: modified", False, info)
+
+out, info, hdrs = apply_full(msg_ap1, plain_to_html=True,
+                             templates={k: (b"", b"{{DisplayName}}") for k in ("new", "reply")})
+check("Plain upgrade skipped without html template", out is not None and hdrs is None and b"multipart" not in out, (info, hdrs))
+
+out, info, hdrs = apply_full(msg_ap1, plain_to_html=False)
+check("Plain upgrade off: old behaviour", out is not None and hdrs is None and top_headers(out) == top_headers(msg_ap1), hdrs)
+
+out, info, hdrs = apply_full(crlf("From: max@example.com\nContent-Type: text/plain; charset=utf-8\n"
+                                  "Content-Transfer-Encoding: 8bit\n\n" + signed_plain), plain_to_html=True)
+check("Plain upgrade: already signed plain untouched", out is None and "already present" in (info or ""), info)
+
+out, info, hdrs = apply_full(crlf(
+    "From: max@example.com\nContent-Type: text/plain; charset=utf-8\n\n-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA256\n\nhi\n"),
+    plain_to_html=True)
+check("Plain upgrade: inline PGP untouched", out is None and "PGP" in (info or ""), info)
+
+# --------------------------------------------------------------------------
 # Logo eingebettet (CID)
 LOGO = bytes.fromhex("89504e470d0a1a0a") + os.urandom(1500)
 LOGO_URL = "https://mail.example.com/sig-assets/0123456789abcdef.png"
@@ -295,14 +389,16 @@ EMBED_TPL = {k: (('<table><tr><td><img src="%s" width="120" alt="x"></td><td>{{D
                  b"{{DisplayName}}") for k in ("new", "reply")}
 
 
-def apply_embed(msg: bytes, assets=None):
+def apply_embed(msg: bytes, assets=None, plain_to_html=False):
     assets = {b"0123456789abcdef.png": LOGO} if assets is None else assets
     opts = lua.table_from({
         b"get_templates": lambda kind: EMBED_TPL[kind.decode()],
         b"vars": lua.table_from(VARS), b"skip_calendar": True, b"embed": True,
         b"read_asset": lambda name: assets.get(name), b"seed": b"abc123",
+        b"plain_to_html": plain_to_html,
     })
-    out, info = M.apply(msg, opts)
+    res = M.apply(msg, opts)
+    out, info = res[0], res[1]
     return out, (info.decode() if isinstance(info, bytes) else info)
 
 
@@ -353,6 +449,15 @@ out, info = apply_embed(crlf(
     "From: max@example.com\nContent-Type: multipart/signed; protocol=\"application/pkcs7-signature\"; boundary=s\n\n"
     "--s\nContent-Type: text/html\n\n<p>x</p>\n--s\nContent-Type: application/pkcs7-signature\n\nAAAA\n--s--\n"))
 check("Embed S/MIME untouched", out is None, info)
+
+out, info = apply_embed(msg_ap1, plain_to_html=True)
+check("Embed plain upgrade: modified", out is not None, info)
+if out:
+    m, imgs = cid_check("Embed plain upgrade", out)
+    check("Embed plain upgrade: alternative{plain, related{html, logo}}",
+          [p.get_content_type() for p in m.walk()]
+          == ["multipart/alternative", "text/plain", "multipart/related", "text/html", "image/png"],
+          [p.get_content_type() for p in m.walk()])
 
 failed = [n for n, ok in RESULTS if not ok]
 print("\n%d/%d passed" % (len(RESULTS) - len(failed), len(RESULTS)))

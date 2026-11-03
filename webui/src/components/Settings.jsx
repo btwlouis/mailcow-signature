@@ -32,6 +32,7 @@ export default function Settings() {
           <Switch label={t("set.dry")} hint={t("set.dryHint")} checked={c.dry_run} onChange={(v) => set("dry_run", v)} />
           {c.dry_run && <div className="pl-12 pt-2"><ListField label={t("set.live")} field="live_senders" placeholder="you@company.com" /></div>}
           <Switch label={t("set.calendar")} checked={c.skip_calendar ?? true} onChange={(v) => set("skip_calendar", v)} />
+          <Switch label={t("set.plainHtml")} hint={t("set.plainHtmlHint")} checked={c.plain_to_html ?? true} onChange={(v) => set("plain_to_html", v)} />
           <Switch label={t("set.auth")} checked={c.require_auth ?? true} onChange={(v) => set("require_auth", v)} />
           <Switch label={t("set.internal")} checked={c.skip_internal} onChange={(v) => set("skip_internal", v)} />
           <div className="pt-3">

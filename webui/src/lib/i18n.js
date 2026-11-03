@@ -52,7 +52,8 @@ const de = {
   "u.more": "Weitere Felder", "u.confirmRemove": "{a} entfernen?", "u.lock": "Namen nicht aus mailcow überschreiben",
 
   "set.title": "Einstellungen", "set.general": "Allgemein", "set.enabled": "Signaturen aktiv", "set.dry": "Testmodus", "set.dryHint": "Nur loggen, nichts einfügen",
-  "set.live": "Live-Tester", "set.calendar": "Kalendereinladungen auslassen", "set.auth": "Nur angemeldete Absender", "set.internal": "Interne Mails auslassen",
+  "set.live": "Live-Tester", "set.calendar": "Kalendereinladungen auslassen", "set.plainHtml": "Nur-Text-Mails in HTML umwandeln", "set.plainHtmlHint": "Apple Mail/iOS: HTML-Signatur mit Logo auch bei Nur-Text",
+  "set.auth": "Nur angemeldete Absender", "set.internal": "Interne Mails auslassen",
   "set.logo": "Logo", "set.linked": "Verlinkt", "set.linkedTip": "Klein; klassisches Outlook fragt bei externen Absendern",
   "set.embedded": "Eingebettet", "set.embeddedTip": "Überall sofort sichtbar; Mail hat Büroklammer", "set.lists": "Listen",
   "set.exclude": "Ausgenommene Absender", "set.internalDomains": "Interne Domains", "set.trusted": "Vertrauenswürdige Netze",
@@ -119,7 +120,8 @@ const en = {
   "u.more": "More fields", "u.confirmRemove": "Remove {a}?", "u.lock": "Don't overwrite the name from mailcow",
 
   "set.title": "Settings", "set.general": "General", "set.enabled": "Signatures enabled", "set.dry": "Dry run", "set.dryHint": "Only log, don't insert",
-  "set.live": "Live testers", "set.calendar": "Skip calendar invites", "set.auth": "Authenticated senders only", "set.internal": "Skip internal mails",
+  "set.live": "Live testers", "set.calendar": "Skip calendar invites", "set.plainHtml": "Convert plain-text mails to HTML", "set.plainHtmlHint": "Apple Mail/iOS: HTML signature with logo even for plain text",
+  "set.auth": "Authenticated senders only", "set.internal": "Skip internal mails",
   "set.logo": "Logo", "set.linked": "Linked", "set.linkedTip": "Small; classic Outlook asks for external senders",
   "set.embedded": "Embedded", "set.embeddedTip": "Shown immediately everywhere; mail gets a paperclip", "set.lists": "Lists",
   "set.exclude": "Excluded senders", "set.internalDomains": "Internal domains", "set.trusted": "Trusted networks",

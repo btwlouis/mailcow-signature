@@ -36,6 +36,7 @@ M.defaults = {
   skip_internal = false,
   internal_domains = {},
   skip_calendar = true,
+  plain_to_html = true, -- Nur-Text-Mails (Apple Mail/iOS) in Text+HTML umbauen
   max_size = 30 * 1024 * 1024,
   cache_ttl = 60,
   vars = {},
@@ -712,6 +713,113 @@ local function long_lines(s)
   return false
 end
 
+---------------------------------------------------------------------------
+-- Einteilige Text-Mails (Apple Mail/iOS ohne Formatierung) zu
+-- multipart/alternative{text/plain, text/html} umbauen, damit die
+-- HTML-Signatur samt Logo ankommt. Die geaenderten Top-Level-Header
+-- setzt der Aufrufer per Milter (siehe process).
+---------------------------------------------------------------------------
+
+-- Text (decodiert, im Original-Zeichensatz) -> HTML im Stil von Apple Mail:
+-- eine <div> pro Zeile, Zitate ("> ") als <blockquote type="cite">
+function M.plain_to_html(text, params)
+  local flowed = (params.format or ''):lower() == 'flowed'
+  local delsp = (params.delsp or ''):lower() == 'yes'
+  text = text:gsub('\r\n', '\n')
+  if text:sub(-1) ~= '\n' then text = text .. '\n' end
+  local lines = {}
+  for line in text:gmatch('([^\n]*)\n') do
+    local prefix = line:match('^>[> ]*') or ''
+    local _, depth = prefix:gsub('>', '')
+    local content = line:sub(#prefix + 1)
+    if flowed and depth == 0 and content:sub(1, 1) == ' ' then content = content:sub(2) end
+    local prev = lines[#lines]
+    if prev and prev.soft and prev.depth == depth then
+      prev.text = prev.text .. content
+      prev.soft = flowed and content:sub(-1) == ' ' and content ~= '-- '
+      if prev.soft and delsp then prev.text = prev.text:sub(1, -2) end
+    else
+      local soft = flowed and content:sub(-1) == ' ' and content ~= '-- '
+      if soft and delsp then content = content:sub(1, -2) end
+      lines[#lines + 1] = { depth = depth, text = content, soft = soft }
+    end
+  end
+  while #lines > 0 and trim(lines[#lines].text) == '' and lines[#lines].depth == 0 do
+    lines[#lines] = nil
+  end
+  local out, depth = {}, 0
+  for _, l in ipairs(lines) do
+    while depth < l.depth do out[#out + 1] = '<blockquote type="cite">'; depth = depth + 1 end
+    while depth > l.depth do out[#out + 1] = '</blockquote>'; depth = depth - 1 end
+    local t = html_escape(l.text):gsub('  ', ' &nbsp;'):gsub('^ ', '&nbsp;')
+    out[#out + 1] = '<div>' .. (t ~= '' and t or '<br>') .. '</div>'
+  end
+  while depth > 0 do out[#out + 1] = '</blockquote>'; depth = depth - 1 end
+  return table.concat(out, '\n')
+end
+
+local function has_html_template(opts)
+  for _, kind in ipairs({ 'new', 'reply' }) do
+    local h = opts.get_templates(kind)
+    if h and trim(h) ~= '' then return true end
+  end
+  return false
+end
+
+-- Liefert { msg = umgebaute Nachricht, headers = { {name, wert}, ... } } oder nil
+function M.upgrade_plain(msg, root, opts, nl)
+  if charset_class(root.params.charset) == nil then return nil end
+  local cte = root.cte
+  if not (cte == '7bit' or cte == '8bit' or cte == 'binary' or cte == 'base64' or cte == 'quoted-printable') then
+    return nil
+  end
+  if not has_html_template(opts) then return nil end
+  local b = '----=_mcsig_alt_' .. (opts.seed or '0')
+  if msg:find(b, 1, true) then return nil end
+
+  -- Content-Type/-Transfer-Encoding wandern unveraendert in den Text-Teil
+  local raw_h = msg:sub(root.hs, root.he)
+  local part_h, count = {}, {}
+  for _, f in ipairs(header_fields(raw_h)) do
+    local name = (f:match('^([^:%s]+)%s*:') or ''):lower()
+    if name == 'content-type' or name == 'content-transfer-encoding' or name == 'mime-version' then
+      count[name] = (count[name] or 0) + 1
+      if name ~= 'mime-version' then part_h[#part_h + 1] = (f:gsub('\r?\n$', '')) end
+    end
+  end
+  for _, n in pairs(count) do
+    if n > 1 then return nil end -- doppelte Header: per Milter nicht eindeutig ersetzbar
+  end
+
+  local body = msg:sub(root.bs, root.be)
+  local cs = (root.params.charset or 'us-ascii'):gsub('[^%w%-_.:]', '')
+  local html = '<html><head><meta http-equiv="Content-Type" content="text/html; charset=' .. cs .. '"></head>'
+    .. '<body style="overflow-wrap: break-word;">\n' .. M.plain_to_html(decode(root, body), root.params)
+    .. '\n</body></html>\n'
+
+  local top_cte = (cte == '8bit' or cte == 'binary') and cte or '7bit'
+  local headers = {
+    { 'Content-Type', 'multipart/alternative; boundary="' .. b .. '"' },
+    { 'Content-Transfer-Encoding', top_cte },
+  }
+  local new_h = raw_h
+  for _, h in ipairs(headers) do new_h = set_header(new_h, h[1], h[2], nl) end
+  if not count['mime-version'] then
+    new_h = set_header(new_h, 'MIME-Version', '1.0', nl)
+    headers[#headers + 1] = { 'MIME-Version', '1.0' }
+  end
+
+  local out = new_h .. nl .. nl
+    .. '--' .. b .. nl .. table.concat(part_h, nl) .. (#part_h > 0 and nl or '') .. nl
+    .. body .. nl
+    .. '--' .. b .. nl
+    .. 'Content-Type: text/html; charset="' .. cs .. '"' .. nl
+    .. 'Content-Transfer-Encoding: quoted-printable' .. nl .. nl
+    .. M.qp_encode(html, nl)
+    .. '--' .. b .. '--' .. nl
+  return { msg = out, headers = headers }
+end
+
 function M.apply(msg, opts)
   local nl = msg:find('\r\n', 1, true) and '\r\n' or '\n'
   local root = M.parse_entity(msg, 1, #msg, 0, true)
@@ -720,6 +828,19 @@ function M.apply(msg, opts)
   if ctx.broken then return nil, 'skip: malformed MIME' end
   if ctx.calendar and opts.skip_calendar then return nil, 'skip: calendar' end
   if not ctx.html and not ctx.plain then return nil, 'skip: no text body' end
+
+  -- Nur-Text-Mail: umbauen und den umgebauten Stand ganz normal signieren
+  if opts.plain_to_html and ctx.plain == root and not opts.upgraded then
+    local decoded = decode(root, msg:sub(root.bs, root.be))
+    if decoded:find('-----BEGIN PGP', 1, true) then return nil, 'skip: inline PGP' end
+    local up = M.upgrade_plain(msg, root, opts, nl)
+    if up then
+      local sub = setmetatable({ upgraded = true }, { __index = opts })
+      local out, info = M.apply(up.msg, sub)
+      if not out then return nil, info end
+      return out, info, up.headers
+    end
+  end
 
   local is_reply = root.hdr['in-reply-to'] ~= nil or root.hdr['references'] ~= nil
   local jobs = {}
@@ -817,7 +938,7 @@ function M.apply(msg, opts)
       c = c:sub(1, job.pos - 1) .. cnl .. insert .. cnl .. c:sub(job.pos)
     else
       local function squash(x) return (x:gsub('%s+', ' ')) end
-      if #ctx_jobs_html == 0 and squash(job.before):find(squash(sig_text), 1, true) then
+      if (#ctx_jobs_html == 0 or opts.upgraded) and squash(job.before):find(squash(sig_text), 1, true) then
         return nil, 'skip: signature already present'
       end
       local t = sig_text
@@ -1135,10 +1256,11 @@ local function process(task)
   local users = read_json(BASE .. '/users.json', ttl, parse_json)
   local vars = M.build_vars(cfg, users, addr, domain, from[1].name)
 
-  local out, info = M.apply(msg, {
+  local out, info, top_headers = M.apply(msg, {
     get_templates = make_template_loader(BASE, addr, domain, ttl),
     vars = vars,
     skip_calendar = cfg.skip_calendar,
+    plain_to_html = cfg.plain_to_html,
     embed = cfg.logo_mode == 'embed',
     read_asset = function(name) return M.read_file(BASE .. '/assets/' .. name, ttl) end,
     seed = string.format('%x%04x', os.time(), math.random(0, 65535)),
@@ -1150,6 +1272,7 @@ local function process(task)
     rspamd_logger.warnx(task, '%s: %s unchanged (%s)', N, addr, info)
     return
   end
+  if top_headers then info = info .. ', plain->html' end
   -- Testmodus: nur live_senders bekommen die Signatur wirklich, alle anderen nur Log
   local live_tester = cfg.dry_run and list_has(cfg.live_senders, addr)
   if cfg.dry_run and not live_tester then
@@ -1158,6 +1281,16 @@ local function process(task)
     return
   end
   task:set_message(out)
+  if top_headers then
+    -- Milter ersetzt nur den Body: Top-Level-Header explizit tauschen.
+    -- rspamd sendet remove_headers vor add_headers.
+    local remove, add = {}, {}
+    for _, h in ipairs(top_headers) do
+      remove[h[1]] = 0 -- 0 = alle Vorkommen
+      add[h[1]] = h[2]
+    end
+    task:set_milter_reply({ remove_headers = remove, add_headers = add })
+  end
   local how = live_tester and ' (live tester)' or ''
   task:insert_result(SYMBOL, 0.0, 'inserted ' .. info .. how)
   rspamd_logger.warnx(task, '%s: inserted %s signature for %s%s', N, info, addr, how)

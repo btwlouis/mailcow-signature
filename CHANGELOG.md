@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/), and the project uses [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- Plain-text mails from Apple Mail and iOS (sent without formatting) only got the text signature, without logo or layout, and umlauts were transliterated. They are now converted to `multipart/alternative` (text + HTML) and get the full HTML signature. The changed top-level headers are set through the milter reply. New option `plain_to_html` (on by default, *Settings*).
+
 ## [1.0.0] - 2026-10-25
 
 First public release.

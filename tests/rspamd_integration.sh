@@ -90,6 +90,19 @@ mail "Ext <someone@other.org>" "Hallo" > "$WORK/m2.eml"
 OUT="$(scan "$WORK/m2.eml" -u someone@other.org -F someone@other.org -r x@external.org)"
 grep -q "data-mcsig" <<<"$OUT" && fail "foreign domain untouched" || pass "foreign domain untouched"
 
+# Apple Mail/iOS ohne Formatierung: einteilig text/plain -> multipart/alternative
+printf 'From: Max <max@example.com>\r\nTo: x@external.org\r\nSubject: Apple\r\nContent-Type: text/plain; charset=us-ascii\r\nContent-Transfer-Encoding: 7bit\r\n\r\nHallo aus Apple Mail\r\n' > "$WORK/m6.eml"
+OUT="$(scan "$WORK/m6.eml" -u max@example.com -F max@example.com -r x@external.org)"
+# Der HTML-Teil ist quoted-printable: data-mcsig=3D"1"
+grep -q 'data-mcsig=' <<<"$OUT" && pass "plain->html: html signature added" || { fail "plain->html: html signature added"; echo "$OUT" | tail -40; }
+grep -q 'boundary="----=_mcsig_alt_' <<<"$OUT" && pass "plain->html: mail is multipart/alternative" || { fail "plain->html: mail is multipart/alternative"; echo "$OUT" | head -30; }
+# Milter-Reply: Postfix ersetzt nur den Body, die Top-Level-Header muessen getauscht werden
+OUT="$(docker exec -i "$NAME" rspamc -h localhost:11333 -j -u max@example.com -F max@example.com -r x@external.org < "$WORK/m6.eml" || true)"
+grep -Eq '"remove_headers"' <<<"$OUT" && grep -Eq '"Content-Type"[[:space:]]*:[[:space:]]*0' <<<"$OUT" \
+  && grep -Eq '"Content-Type"[[:space:]]*:[[:space:]]*"multipart/alternative' <<<"$OUT" \
+  && pass "plain->html: milter replaces Content-Type" || { fail "plain->html: milter replaces Content-Type"; echo "$OUT" | head -40; }
+grep -q "plain->html" <<<"$OUT" && pass "plain->html: symbol says plain->html" || fail "plain->html: symbol says plain->html"
+
 printf 'From: max@example.com\r\nTo: x@external.org\r\nSubject: signed\r\nMIME-Version: 1.0\r\nContent-Type: multipart/signed; protocol="application/pkcs7-signature"; micalg=sha-256; boundary="s1"\r\n\r\n--s1\r\nContent-Type: text/plain\r\n\r\nsigned body\r\n--s1\r\nContent-Type: application/pkcs7-signature; name=smime.p7s\r\n\r\nAAAA\r\n--s1--\r\n' > "$WORK/m3.eml"
 OUT="$(scan "$WORK/m3.eml" -u max@example.com -F max@example.com -r x@external.org)"
 grep -q "Max Integration" <<<"$OUT" && fail "S/MIME untouched" || pass "S/MIME untouched"

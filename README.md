@@ -40,6 +40,7 @@
 
 - 🧩 **rspamd plugin**, using the same hook as mailcow's footer. Runs before DKIM/ARC signing, so **DKIM stays valid**.
 - 📬 **Finds the reply position** for Outlook (desktop, OWA, new Outlook, mobile), Gmail, Apple Mail/iOS, Thunderbird, SOGo, Roundcube, Yahoo and Zimbra.
+- 🍏 **Plain-text mails get the HTML signature too**: Apple Mail and iOS send unformatted mails as plain text only. These are turned into text + HTML, so the logo and layout still arrive.
 - 🚀 **Guided first-run setup**: company details, logo and layout in five steps.
 - 🌍 **English and German** interface, switchable at any time. Each signature has its own language too ("Phone" vs. "Tel.").
 - 🎨 **Signature gallery** with five ready-made layouts (Classic, Logo on top, Modern, Compact, Minimal). Customize logo, colors, font and fields with a live preview.
@@ -151,6 +152,7 @@ docker compose logs rspamd-mailcow | grep mailcow_signature     # expect "mailco
 
 - Signatures live in a library (`library.json`). Domains and people point to one of them (`signatures` in `config.json`). On save, the UI generates the template files the plugin reads.
 - Only the bytes of the first `text/html` and `text/plain` part are replaced. Headers, attachments and attached messages stay byte-identical, and the original charset and transfer encoding are kept.
+- Exception: a single-part plain-text mail (Apple Mail/iOS without formatting) becomes `multipart/alternative` with the original text and an HTML version of it. Only `Content-Type`, `Content-Transfer-Encoding` and, if missing, `MIME-Version` change; the plugin replaces them through the milter reply, so DKIM signs the final headers. Turn it off with *Settings → Convert plain-text mails to HTML* (`"plain_to_html": false`).
 - Logos are stored in `data/web/sig-assets/` and served by mailcow's nginx at `https://<mailcow-host>/sig-assets/…`.
 
 ## Dark mode & logos
@@ -184,7 +186,7 @@ The same info shows up as the symbol `MAILCOW_SIGNATURE` in the rspamd history (
 
 - The copy in *Sent Items* has no signature, because the client saves it before the server adds one. M365 and Exclaimer behave the same in server mode.
 - Unknown clients without a recognizable quote marker get the signature at the end.
-- Single-part plain-text mails in `7bit`/`us-ascii` get non-ASCII characters transliterated (ü → ue).
+- With `plain_to_html` off, single-part plain-text mails in `7bit`/`us-ascii` get non-ASCII characters transliterated (ü → ue).
 
 <details>
 <summary><b>Files</b></summary>

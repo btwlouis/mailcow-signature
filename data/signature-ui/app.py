@@ -154,7 +154,7 @@ def validate_config(cfg):
     for key in ("domains", "trusted_networks", "exclude_senders", "internal_domains", "live_senders"):
         if key in cfg and not (isinstance(cfg[key], list) and all(isinstance(x, str) for x in cfg[key])):
             raise ValueError("%s muss eine Liste von Texten sein" % key)
-    for key in ("enabled", "dry_run", "require_auth", "skip_internal", "skip_calendar"):
+    for key in ("enabled", "dry_run", "require_auth", "skip_internal", "skip_calendar", "plain_to_html"):
         if key in cfg and not isinstance(cfg[key], bool):
             raise ValueError("%s muss true/false sein" % key)
     if cfg.get("logo_mode", "link") not in ("link", "embed"):
