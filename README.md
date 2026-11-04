@@ -228,4 +228,4 @@ See [CHANGELOG.md](CHANGELOG.md) and the [releases](https://github.com/btwlouis/
 
 ## License
 
-[MIT](LICENSE). The mailcow logo in the banner belongs to the [mailcow](https://github.com/mailcow/mailcow-dockerized) project. This project is independent and not affiliated with mailcow or The Infrastructure Company GmbH.
+[MIT](LICENSE). This project is independent and not affiliated with or endorsed by [mailcow](https://github.com/mailcow/mailcow-dockerized) or The Infrastructure Company GmbH. "mailcow" is used only to describe compatibility.
